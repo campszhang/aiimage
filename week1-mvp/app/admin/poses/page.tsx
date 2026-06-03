@@ -15,8 +15,8 @@ type Pose = {
 };
 
 const TYPE_LABEL: Record<PoseType, string> = {
-  full: "全身",
-  half: "半身",
+  full: "主图",
+  half: "生活方式",
   closeup: "特写",
 };
 
@@ -105,7 +105,7 @@ export default function PosesAdminPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("确定删除这个姿势？")) return;
+    if (!confirm("确定删除这个镜头？")) return;
     try {
       const res = await fetch(`/api/poses/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
@@ -119,16 +119,16 @@ export default function PosesAdminPage() {
     <main className="max-w-5xl mx-auto p-4 md:p-8">
       <header className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-fg-primary">姿势库</h1>
+          <h1 className="text-2xl font-bold text-fg-primary">镜头库</h1>
           <p className="mt-1 text-sm text-fg-tertiary">
-            模特摄影的姿势文字描述。按全身 / 半身 / 特写分组，生成时会作为指令注入 Prompt
+            家居软品摄影的镜头与构图描述。按主图 / 生活方式 / 特写分组，生成时会作为指令注入 Prompt
           </p>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700"
         >
-          {showForm ? "取消" : "+ 添加姿势"}
+          {showForm ? "取消" : "+ 添加镜头"}
         </button>
       </header>
 
@@ -149,7 +149,7 @@ export default function PosesAdminPage() {
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="如：侧身叉腰"
+                placeholder="如：床铺平铺主图"
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
               />
             </div>
@@ -164,20 +164,20 @@ export default function PosesAdminPage() {
                 }
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
               >
-                <option value="full">全身</option>
-                <option value="half">半身</option>
+                <option value="full">主图</option>
+                <option value="half">生活方式</option>
                 <option value="closeup">特写</option>
               </select>
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-fg-secondary mb-1">
-                姿势描述 <span className="text-danger">*</span>
+                镜头描述 <span className="text-danger">*</span>
               </label>
               <textarea
                 value={form.text}
                 onChange={(e) => setForm({ ...form, text: e.target.value })}
                 rows={3}
-                placeholder="用文字详细描述姿势：身体朝向、手的位置、表情、动态感等..."
+                placeholder="用文字详细描述构图、产品摆放、镜头角度、光线和细节重点..."
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
               />
             </div>
@@ -187,7 +187,7 @@ export default function PosesAdminPage() {
                 type="text"
                 value={form.tags}
                 onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                placeholder="用逗号分隔：侧身,叉腰"
+                placeholder="用逗号分隔：床品,平铺,主图"
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
               />
             </div>
@@ -212,7 +212,7 @@ export default function PosesAdminPage() {
                 }
               />
               <label htmlFor="form-is-hero" className="cursor-pointer">
-                标记为「首图（hero）」专用姿势 —— 在批量摄影选姿势时单独分组并支持"🎲 随机首图"
+                标记为「首图（hero）」专用镜头 —— 在批量摄影选镜头时单独分组并支持随机首图
               </label>
             </div>
             <div className="col-span-2">
@@ -255,7 +255,7 @@ export default function PosesAdminPage() {
         {loading ? (
           <div className="p-6 text-sm text-fg-tertiary">加载中...</div>
         ) : grouped[activeType].length === 0 ? (
-          <div className="p-6 text-sm text-fg-tertiary">该分类暂无姿势</div>
+          <div className="p-6 text-sm text-fg-tertiary">该分类暂无镜头</div>
         ) : (
           <ul className="divide-y divide-border-subtle">
             {grouped[activeType].map((p) => (

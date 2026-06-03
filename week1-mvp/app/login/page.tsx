@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, LockKeyhole, Sparkles, UserRound } from "lucide-react";
 
@@ -12,7 +12,12 @@ function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +85,7 @@ function LoginForm() {
 
       <section className="flex-1 flex items-center justify-center px-4 py-8">
         <form
+          method="post"
           onSubmit={handleSubmit}
           className="w-full max-w-[380px] bg-bg-secondary rounded-lg border border-border-default shadow-lg p-7"
         >
@@ -121,6 +127,7 @@ function LoginForm() {
               />
               <input
                 type="text"
+                name="username"
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -142,6 +149,7 @@ function LoginForm() {
               />
               <input
                 type="password"
+                name="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -167,11 +175,11 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !hydrated}
             className="btn btn-primary btn-md w-full justify-center gap-2"
           >
-            {loading ? "登录中..." : "登录"}
-            {!loading && <ArrowRight size={15} strokeWidth={2.2} />}
+            {loading || !hydrated ? "登录中..." : "登录"}
+            {!loading && hydrated && <ArrowRight size={15} strokeWidth={2.2} />}
           </button>
           </div>
         </form>

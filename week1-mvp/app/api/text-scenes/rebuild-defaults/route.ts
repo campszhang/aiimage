@@ -24,7 +24,7 @@ export const maxDuration = 600;
 const ANALYZE_MODEL = "gemini-2.5-flash";
 const CONCURRENCY = 4;
 
-const ANALYSIS_PROMPT = `你是一个时装电商场景图分析专家。
+const ANALYSIS_PROMPT = `你是一个家居软品电商场景图分析专家。
 
 请仔细分析这张场景图，提取关键信息并按下面的 JSON 格式返回（**只返回 JSON，不要任何额外文字**）：
 
@@ -40,7 +40,7 @@ const ANALYSIS_PROMPT = `你是一个时装电商场景图分析专家。
 - name 简洁、区分调性
 - group 从给定 7 类选最匹配的
 - text 只描述场景本身（家具/门/楼梯/栏杆/桌面/道具 + 光线 + 色调 + 镜头建议）
-- 不要提到模特、姿势、人物互动
+- 不要提到人物、穿搭、身体动作或模特互动
 
 只返回 JSON，无 markdown 标记，无解释。`;
 

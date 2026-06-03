@@ -44,7 +44,7 @@ const ALLOWED_RATIOS = [
 /**
  * POST /api/scene-tools
  *
- * 服饰场景图（统一工具）v5 — 加焦点开关 + 特写镜头 + 材质词库。
+ * 家居场景图（统一工具）v5 — 加焦点开关 + 特写镜头 + 材质词库。
  *
  *   单场景输出 = count（常规变体）+ closeup_presets.length（特写多选）
  *   总输出 = N 产品图 × Σ(scene_i 单场景输出)
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
         ? (focusModeRaw as FocusMode)
         : "model_first";
 
-    // ─── pose_mode：固定 editorial（杂志大片）。"场景互动"模式因姿势生硬重复（总扶栏杆/靠门）已下线。 ───
+    // ─── pose_mode：固定 editorial（杂志大片）。旧服装互动模式已下线。 ───
     const poseMode: PoseMode = "editorial";
 
     // ─── material_ids（材质词库，跟 batch-photo 一样的接入方式） ───

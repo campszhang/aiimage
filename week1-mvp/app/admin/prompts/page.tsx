@@ -13,15 +13,15 @@ type Prompt = {
 };
 
 const KIND_LABEL: Record<PromptKind, string> = {
-  on_model: "模特换装",
-  recolor: "换色",
+  on_model: "家居批量摄影",
+  recolor: "家居换色",
   generic: "通用",
 };
 
 const KIND_HINT: Record<PromptKind, string> = {
   on_model:
-    "用于 /on-model 换装。占位符：{{garment_attrs}} {{pose}} {{photography_params}} {{user_seed}} {{n}}",
-  recolor: "用于 /recolor 换色。占位符：{{color_name}} {{hex}}",
+    "用于家居软品批量摄影。占位符：{{garment_attrs}} {{pose}} {{photography_params}} {{user_seed}} {{n}}",
+  recolor: "用于 /recolor 家居产品换色。占位符：{{color_name}} {{hex}}",
   generic: "通用模板",
 };
 
@@ -111,7 +111,7 @@ export default function PromptsAdminPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("确定删除这个模板？删除后 /on-model 页将失去它作为选项")) return;
+    if (!confirm("确定删除这个模板？删除后批量摄影页将失去它作为选项")) return;
     try {
       const res = await fetch(`/api/prompts/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
@@ -156,7 +156,7 @@ export default function PromptsAdminPage() {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="如：标准模特穿着图"
+                  placeholder="如：家居软品产品摄影"
                   className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
                 />
               </div>
@@ -171,7 +171,7 @@ export default function PromptsAdminPage() {
                   }
                   className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
                 >
-                  <option value="on_model">模特换装 on_model</option>
+                  <option value="on_model">家居批量摄影 on_model</option>
                   <option value="recolor">换色 recolor</option>
                   <option value="generic">通用 generic</option>
                 </select>

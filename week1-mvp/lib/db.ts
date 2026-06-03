@@ -598,6 +598,8 @@ function migrate(db: Database.Database) {
   migrateSeedSceneCategoriesV1(db);
   // 家居软品 v1：覆盖新部署默认业务域（枕头 / 枕套 / 眼罩 / 发圈 / 被类）
   migrateHomeTextileDefaultsV1(db);
+  // 家居软品最终收口：旧迁移可能再次补入女装 pose，最后统一清理并补齐家居镜头。
+  enforceHomeTextilePoseDefaults(db);
 }
 
 /**
@@ -3253,7 +3255,7 @@ function migrateSeedSceneCategoriesV1(db: Database.Database) {
  * 夏被、羽绒被，而不是历史女装场景。保留旧表名以减少改造风险。
  */
 function migrateHomeTextileDefaultsV1(db: Database.Database) {
-  const FLAG = "migrated_home_textile_defaults_v2";
+  const FLAG = "migrated_home_textile_defaults_v3";
   const flag = db
     .prepare(`SELECT value FROM settings WHERE key = ?`)
     .get(FLAG) as { value: string } | undefined;
@@ -3532,4 +3534,132 @@ function migrateHomeTextileDefaultsV1(db: Database.Database) {
 
   tx();
   console.log(`[db] migrateHomeTextileDefaultsV1: done (${FLAG})`);
+}
+
+function getHomeTextileShotSeeds() {
+  return [
+    {
+      name: "主图 · 浅底完整产品",
+      text: "浅米白或浅灰极简背景，产品完整居中呈现，边缘不裁切，保留真实接触阴影。适合枕头、枕套、眼罩、发圈、凉感被、夏被、羽绒被主图。",
+      type: "full",
+      tags: "主图,浅底,完整产品",
+      is_hero: 1,
+      sort_order: 10,
+    },
+    {
+      name: "卧室床铺生活方式",
+      text: "产品自然放在床上或床头区域，床品柔软铺开，清晨窗光，构图干净，高级家居目录质感。",
+      type: "full",
+      tags: "卧室,床铺,生活方式",
+      is_hero: 1,
+      sort_order: 20,
+    },
+    {
+      name: "客厅沙发软装",
+      text: "产品自然摆放在布艺沙发或休闲椅上，旁边有低饱和软装道具，真实接触阴影，突出家居搭配感。",
+      type: "full",
+      tags: "客厅,沙发,软装",
+      is_hero: 0,
+      sort_order: 30,
+    },
+    {
+      name: "夏日凉感平铺",
+      text: "清爽明亮的夏季床面或白色台面，产品轻薄平铺，冷调自然光，突出凉感、透气和轻盈。",
+      type: "full",
+      tags: "夏季,凉感,平铺",
+      is_hero: 0,
+      sort_order: 40,
+    },
+    {
+      name: "羽绒被蓬松展示",
+      text: "羽绒被或枕头在床面上自然鼓起，绗缝分格和蓬松填充清晰，顶部柔亮、缝线凹陷处有自然阴影。",
+      type: "half",
+      tags: "羽绒,蓬松,绗缝",
+      is_hero: 0,
+      sort_order: 50,
+    },
+    {
+      name: "眼罩发圈组合静物",
+      text: "眼罩和发圈作为小件静物自然摆放在床头柜、丝绸枕套或浅色台面上，柔和近景，突出丝绸光泽和柔软褶皱。",
+      type: "half",
+      tags: "眼罩,发圈,静物",
+      is_hero: 0,
+      sort_order: 60,
+    },
+    {
+      name: "细节 · 包边车线",
+      text: "微距拍摄产品边缘、包边、车线、拉链或标签，背景简洁虚化，纹理锐利可见。",
+      type: "closeup",
+      tags: "细节,包边,车线",
+      is_hero: 0,
+      sort_order: 70,
+    },
+    {
+      name: "细节 · 面料纹理",
+      text: "极近距离展示面料纤维、丝绸高光、凉感平滑表面、绒面方向或水洗棉自然皱感，真实锐利。",
+      type: "closeup",
+      tags: "细节,面料,纹理",
+      is_hero: 0,
+      sort_order: 80,
+    },
+  ] as Array<{
+    name: string;
+    text: string;
+    type: "full" | "half" | "closeup";
+    tags: string;
+    is_hero: 0 | 1;
+    sort_order: number;
+  }>;
+}
+
+function enforceHomeTextilePoseDefaults(db: Database.Database) {
+  const homeShots = getHomeTextileShotSeeds();
+  const findByName = db.prepare(`SELECT id FROM poses WHERE name = ?`);
+  const insertPose = db.prepare(
+    `INSERT INTO poses (name, text, type, tags, is_hero, sort_order)
+     VALUES (@name, @text, @type, @tags, @is_hero, @sort_order)`,
+  );
+
+  let inserted = 0;
+  const tx = db.transaction(() => {
+    const deleted = db
+      .prepare(
+        `DELETE FROM poses
+         WHERE name IN (
+           '首图 · 自然站姿',
+           '首图 · 一脚前迈轻扶裙',
+           '首图 · 半侧身露肩',
+           '首图 · 抚发瞬间',
+           '首图 · 欲走未走',
+           '背身回眸',
+           '自然正面站',
+           '单手叉腰正面',
+           '背身撩发',
+           '双手扶腰',
+           'S形侧立',
+           '全身侧光开衩',
+           '腰部以上双叉腰',
+           '侧身腰部细节',
+           '锁骨胸前特写'
+         )
+         OR text LIKE '%模特%'
+         OR text LIKE '%裙%'
+         OR text LIKE '%dress%'
+         OR text LIKE '%Model%'`,
+      )
+      .run().changes;
+
+    for (const shot of homeShots) {
+      if (findByName.get(shot.name)) continue;
+      insertPose.run(shot);
+      inserted += 1;
+    }
+
+    if (deleted > 0 || inserted > 0) {
+      console.log(
+        `[db] enforceHomeTextilePoseDefaults: 清理 ${deleted} 条旧 pose，补齐 ${inserted} 条家居镜头`,
+      );
+    }
+  });
+  tx();
 }

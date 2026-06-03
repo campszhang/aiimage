@@ -13,7 +13,7 @@ type NavUser = {
 const NAV_ITEMS = [
   { href: "/", label: "首页" },
   { href: "/recolor", label: "换色" },
-  { href: "/batch-photo", label: "批量摄影图" },
+  { href: "/batch-photo", label: "软品批量摄影" },
   { href: "/history", label: "历史" },
   { href: "/billing", label: "账单" },
 ] as const;
@@ -24,9 +24,9 @@ const ADMIN_ITEMS = [
   { href: "/admin/model-prices", label: "单价/汇率" },
   { href: "/admin/colors", label: "颜色" },
   { href: "/admin/materials", label: "材质" },
-  { href: "/admin/models", label: "模特" },
+  { href: "/admin/models", label: "参考图库" },
   { href: "/admin/scenes", label: "场景" },
-  { href: "/admin/poses", label: "姿势" },
+  { href: "/admin/poses", label: "镜头" },
   { href: "/admin/photography", label: "摄影" },
   { href: "/admin/realism", label: "真实感" },
   { href: "/admin/prompts", label: "Prompt" },
@@ -54,7 +54,7 @@ export function NavBar({ user }: { user: NavUser }) {
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-1 overflow-x-auto">
             <Link href="/" className="font-semibold text-gray-900 mr-4 whitespace-nowrap">
-              服装AI生图工具
+              家居软品AI生图工具
             </Link>
             {NAV_ITEMS.map((item) => (
               <Link

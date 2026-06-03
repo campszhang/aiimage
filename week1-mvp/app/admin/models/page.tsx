@@ -123,13 +123,13 @@ export default function ModelsAdminPage() {
   return (
     <main className="max-w-5xl mx-auto p-4 md:p-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-fg-primary">模特形象库</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">参考素材库</h1>
         <p className="mt-1 text-sm text-fg-tertiary">
-          模特的身份参考图（脸 / 肤色 / 发型 / 体型）。
+          家居软品的参考素材、场景占位和旧任务兼容图片。
           支持 <strong>PNG（推荐透明底）</strong> 或 <strong>JPG</strong>。
         </p>
         <p className="mt-1 text-xs text-fg-tertiary">
-          💡 透明底（PNG 抠图后）合成效果最干净；带背景的图也能用，AI 会自己识别主体。抠图工具推荐：
+          透明底（PNG 抠图后）合成效果最干净；带背景的产品图也能用，AI 会自己识别主体。抠图工具推荐：
           <a
             href="https://www.remove.bg/zh"
             target="_blank"
@@ -159,7 +159,7 @@ export default function ModelsAdminPage() {
 
       <section className="bg-bg-secondary rounded-lg shadow-sm border border-border-subtle p-6 mb-6">
         <h2 className="text-sm font-semibold text-fg-secondary mb-3">
-          新增模特形象
+          新增参考素材
         </h2>
         <form onSubmit={handleUpload} className="space-y-3">
           <div>
@@ -206,7 +206,7 @@ export default function ModelsAdminPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="如：亚洲长发女模 A"
+                placeholder="如：抱枕正面参考 A"
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
               />
             </div>
@@ -218,7 +218,7 @@ export default function ModelsAdminPage() {
                 type="text"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
-                placeholder="如：亚洲,长发,清秀"
+                placeholder="如：抱枕,丝绒,奶油色"
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm"
               />
             </div>
@@ -270,7 +270,7 @@ export default function ModelsAdminPage() {
       <section className="bg-bg-secondary rounded-lg shadow-sm border border-border-subtle">
         <div className="px-4 py-3 border-b border-border-subtle">
           <h2 className="text-sm font-semibold text-fg-secondary mb-2.5">
-            已有模特 ({items.length})
+            已有参考素材 ({items.length})
           </h2>
           <div className="flex flex-wrap gap-1.5">
             {(() => {
@@ -317,7 +317,7 @@ export default function ModelsAdminPage() {
           <div className="p-6 text-sm text-fg-tertiary">加载中...</div>
         ) : items.length === 0 ? (
           <div className="p-6 text-sm text-fg-tertiary">
-            还没有模特，先上传至少一个
+            还没有参考素材，先上传至少一个
           </div>
         ) : (
           (() => {
@@ -329,7 +329,7 @@ export default function ModelsAdminPage() {
                   : items.filter((m) => m.category === activeCat);
             if (filtered.length === 0)
               return (
-                <div className="p-6 text-sm text-fg-tertiary">该分类下还没有模特</div>
+                <div className="p-6 text-sm text-fg-tertiary">该分类下还没有参考素材</div>
               );
             return (
               <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4">

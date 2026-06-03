@@ -34,7 +34,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# 种子资源（首启动时拷贝到 data/uploads/，让新实例自动有色卡/模特/场景预设）
+# 种子资源（首启动时拷贝到 data/uploads/，让新实例自动有色卡/参考素材/场景预设）
 COPY --from=builder --chown=nextjs:nodejs /app/seed-assets ./seed-assets
 
 # better-sqlite3 的 native binding 不在 standalone 里，需要单独拷贝

@@ -113,8 +113,8 @@ interface CostEstimate {
 }
 
 const POSE_TYPE_LABEL: Record<PoseType, string> = {
-  full: "全身",
-  half: "半身",
+  full: "主图",
+  half: "生活方式",
   closeup: "特写",
 };
 
@@ -209,7 +209,7 @@ async function resizeImage(file: File, maxSize = 2048): Promise<Blob> {
  * 拥有自己的 useState、useEffect、polling、slotStore。
  *
  * Slot key 命名约定：`batchPhoto:${tabId}`
- *   - tab 数据（产品图、模特、场景、姿势、prompt 等）独立持久化
+ *   - tab 数据（产品图、参考图、场景、镜头、prompt 等）独立持久化
  *   - 切换 tab 后再切回来，从 slotStore 恢复表单
  *   - 关闭 tab 调用 store.reset(`batchPhoto:${tabId}`) 清掉
  */
@@ -254,11 +254,11 @@ function BatchPhotoTab({
   // ─── 选择 ───
   const [identityId, setIdentityId] = useState<number | null>(null);
   const [shoeStyleId, setShoeStyleId] = useState<string>("random");
-  // Step 4 改造（N 纯色姿势 + 1-2 张场景的混合输出模式）：
+  // Step 4 改造（N 纯色镜头 + 1-2 张场景的混合输出模式）：
   // - solidColorHex/Name：所有 pose 的纯色背景（必填，默认浅米）
   // - extraScenePairs：额外场景 + 数量（≤ 2 张场景，每张出 count 张图）
   //   旧版本：每张场景必须绑定一个固定 pose；新版本改成"选场景 + 选数量"，
-  //   姿势完全交给模型按场景物件自由互动生成（跟 v3 prompt 配合）
+  //   镜头完全交给模型按场景物件自由生成（跟 v3 prompt 配合）
   const [solidColorHex, setSolidColorHex] = useState<string>("#F5F1EA");
   const [styleTab, setStyleTab] = useState<"template" | "photo" | "realism" | "expression">("template");
   const [textPresetTab, setTextPresetTab] = useState("");
@@ -331,7 +331,7 @@ function BatchPhotoTab({
           setSolidColorHex(params.solid_color_hex);
         if (typeof params.solid_color_name === "string")
           setSolidColorName(params.solid_color_name);
-        // 模特、模板、摄影参数、真实感、表情：直接拿 id
+        // 兼容参考图、模板、摄影参数、真实感、表情：直接拿 id
         const identity = params.identity as { id?: number } | undefined;
         if (identity?.id) setIdentityId(identity.id);
         const template = params.template as { id?: number } | undefined;
@@ -342,7 +342,7 @@ function BatchPhotoTab({
           setRealismId(params.realism_id as number);
         if (Number.isFinite(params.expression_id as number))
           setExpressionId(params.expression_id as number);
-        // 姿势 / 材质（list 类型）
+        // 镜头 / 材质（list 类型）
         const poses = params.poses as Array<{ id: number }> | undefined;
         if (Array.isArray(poses) && poses.length > 0) {
           setSelectedPoseIds(
@@ -383,7 +383,7 @@ function BatchPhotoTab({
           if (texts.length > 0) setExtraTextScenes(texts);
         }
         setPrefillBanner(
-          `已从老任务 #${prefillJobId.slice(0, 8)} 预填基础参数（模型 / 比例 / 画质 / 姿势 / 场景）。产品图请重新上传；款式 / 产品类目请重新解析或挑选。`,
+          `已从老任务 #${prefillJobId.slice(0, 8)} 预填基础参数（模型 / 比例 / 画质 / 镜头 / 场景）。产品图请重新上传；款式 / 产品类目请重新解析或挑选。`,
         );
       })
       .catch(() => {});
@@ -472,7 +472,7 @@ function BatchPhotoTab({
     const savedSolidName = slotStore.get<string>("solidColorName");
     if (savedSolidName) setSolidColorName(savedSolidName);
     // slot 数据可能是老 shape（{scene_id, pose_id}）也可能是新 shape（{scene_id, count}）
-    // 老数据自动迁移：pose_id → count=1（用户之前选过的场景保留，姿势绑定丢掉走自由互动）
+    // 老数据自动迁移：pose_id → count=1（用户之前选过的场景保留，镜头绑定丢掉走自由生成）
     const savedExtra = slotStore.get<
       Array<{ scene_id: number; pose_id?: number | null; count?: number }>
     >("extraScenePairs");
@@ -570,7 +570,7 @@ function BatchPhotoTab({
   ]);
 
   /* ─── extraScenePairs 自洁：只限制 ≤ 2 张场景 + count 在 1..5 ─── */
-  // 旧版本依赖 selectedPoseIds 自洁，现在跟姿势池解耦了
+  // 旧版本依赖 selectedPoseIds 自洁，现在跟镜头池解耦了
   useEffect(() => {
     setExtraScenePairs((prev) => {
       const next = prev
@@ -811,14 +811,14 @@ function BatchPhotoTab({
     return map;
   }, [poses]);
 
-  // 首图（hero）专用姿势单独成组
+  // 首图（hero）专用镜头单独成组
   const heroPoses = useMemo(
     () => poses.filter((p) => p.is_hero === 1),
     [poses],
   );
 
   // 🎲 随机首图：替换式——清掉之前选中的 hero，抽一个新的
-  // 避免连点几下变成"全选首图"。其它非 hero 姿势保留不动。
+  // 避免连点几下变成"全选首图"。其它非 hero 镜头保留不动。
   function pickRandomHeroPose() {
     if (heroPoses.length === 0) return;
     const heroIds = new Set(heroPoses.map((p) => p.id));
@@ -838,7 +838,7 @@ function BatchPhotoTab({
     });
   }
 
-  // 模特按 category 分组（保持稳定排序）
+  // 兼容参考图按 category 分组（保持稳定排序）
   const identityGroups = useMemo(() => {
     const CATEGORY_ORDER = ["通用", "大码", "孕妇", "青少年"];
     const groups = new Map<string, Identity[]>();
@@ -927,7 +927,7 @@ function BatchPhotoTab({
       fd.append("solid_color_hex", solidColorHex);
       fd.append("solid_color_name", solidColorName);
       // 场景 + 数量（新版字段名，跟旧 pose 绑定模式区分）
-      // 后端按 count 把每张场景展开成 N 个 item，每个 item 走"自由互动"姿势
+      // 后端按 count 把每张场景展开成 N 个 item，每个 item 走自由镜头生成
       const validPairs = extraScenePairs
         .filter((p) => p.count > 0)
         .map((p) => ({ scene_id: p.scene_id, count: p.count }));
@@ -1321,7 +1321,7 @@ function BatchPhotoTab({
               </CollapsibleSection>
             )}
 
-            {/* Step 3: 模特（按分类折叠）*/}
+            {/* Step 3: 兼容参考图（按分类折叠）*/}
             <CollapsibleSection
               title="③ 参考图位（兼容旧流程）"
               description={
@@ -1637,7 +1637,8 @@ function BatchPhotoTab({
               </div>
             </CollapsibleSection>
 
-            {/* Step 5: 鞋款设置（按 identity audience 自动分类） */}
+            <div className="hidden" aria-hidden="true">
+            {/* Step 5: 鞋款设置（旧女装流程兼容，家居软品隐藏） */}
             <CollapsibleSection
               title="⑤ 旧鞋款设置（家居软品会自动忽略）"
               description={(() => {
@@ -1735,8 +1736,9 @@ function BatchPhotoTab({
                 );
               })()}
             </CollapsibleSection>
+            </div>
 
-            {/* Step 5: 姿势（按类型折叠） */}
+            {/* Step 5: 镜头（按类型折叠） */}
             <CollapsibleSection
               title="⑤ 选择镜头"
               description={

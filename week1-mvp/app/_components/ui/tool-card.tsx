@@ -29,7 +29,7 @@ export interface ToolCardProps {
  * 用法（首页 6 卡）：
  *   <ToolCard
  *     href="/scene-tools"
- *     title="服饰场景图"
+ *     title="家居场景图"
  *     subtitle="批量换景，一键生成"
  *     icon={<Sparkles size={28} />}
  *     gradient="indigo"

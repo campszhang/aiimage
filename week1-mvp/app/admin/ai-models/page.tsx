@@ -19,14 +19,14 @@ type AiModel = {
 
 const CATEGORY_LABEL: Record<Category, string> = {
   vision: "视觉理解（解析图片用）",
-  image_gen: "图像生成（换色 / 换模特用）",
+  image_gen: "图像生成（换色 / 家居场景图用）",
 };
 
 const CATEGORY_HINT: Record<Category, string> = {
   vision:
     "用于 /analyze 解析图片。推荐 gemini-2.5-flash（性价比高）或 gemini-2.5-pro（识别更细）",
   image_gen:
-    "用于 /recolor 换色 和后续 /on-model 换模特。Nano Banana 系列（gemini-*-image-preview）",
+    "用于 /recolor 换色、批量摄影和家居场景图。Nano Banana 系列（gemini-*-image-preview）",
 };
 
 export default function AiModelsAdminPage() {

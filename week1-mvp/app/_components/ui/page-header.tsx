@@ -22,7 +22,7 @@ export interface PageHeaderProps {
  *
  * 用法：
  *   <PageHeader
- *     title="服饰场景图"
+ *     title="家居场景图"
  *     description="N 张产品 × M 个场景 = 笛卡尔积输出"
  *     icon={<Sparkles size={24} />}
  *     actions={<Button variant="primary">新建</Button>}

@@ -367,11 +367,10 @@ export default function IdentityGeneratorPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-fg-primary flex items-center gap-2">
           <Sparkles size={20} className="text-brand-400" strokeWidth={2.2} />
-          形象生成器
+          参考图生成器
         </h1>
         <p className="mt-1 text-sm text-fg-tertiary">
-          按 5 个参数生成高质量 identity 参考图（默认 Pro 2K · 3:4 ·
-          毛孔级真实感）。预览满意后保存到形象库，立刻在批量摄影里能选。
+          旧流程兼容入口，用于生成可放入参考素材库的图片。家居软品主流程优先使用产品实拍图和场景图。
         </p>
         <p className="mt-1 text-[11px] text-fg-muted">
           先用 1K/2K 找对参数方向，再切 4K 出最终版；不满意可重生成多次再选最好的保存。
@@ -398,7 +397,7 @@ export default function IdentityGeneratorPage() {
             />
             <div className="flex-1">
               <div className="text-sm font-medium text-success flex items-center gap-2">
-                ✅ 已保存到形象库：{committed.name}
+                已保存到参考素材库：{committed.name}
                 {committed.category_label && (
                   <span className="text-[11px] px-1.5 py-0.5 rounded bg-bg-tertiary text-fg-tertiary">
                     {committed.category_label}
@@ -406,14 +405,14 @@ export default function IdentityGeneratorPage() {
                 )}
               </div>
               <div className="mt-1 text-[12px] text-fg-secondary">
-                ID #{committed.id} · 现在可以在批量摄影 / 模特库里选用
+                ID #{committed.id} · 现在可以在批量摄影 / 参考素材库里选用
               </div>
               <div className="mt-2 flex gap-2">
                 <a
                   href="/admin/models"
                   className="text-xs text-brand-400 hover:underline inline-flex items-center gap-1"
                 >
-                  打开模特库 <ExternalLink size={11} />
+                  打开参考素材库 <ExternalLink size={11} />
                 </a>
                 <button
                   onClick={() => setCommitted(null)}
@@ -545,7 +544,7 @@ export default function IdentityGeneratorPage() {
 
             {/* 原型模式：上传原型图 */}
             {mode === "prototype" && (
-              <Field label="原型图（真人参考 · 保留身体 + 姿势 + 背景）">
+              <Field label="原型图（旧兼容 · 保留主体 + 构图 + 背景）">
                 {!prototypeFile ? (
                   <Dropzone
                     accept="image/*"
@@ -913,7 +912,7 @@ export default function IdentityGeneratorPage() {
                   ) : (
                     <>
                       <Save size={13} strokeWidth={2.2} />
-                      保存到形象库
+                      保存到参考素材库
                     </>
                   )}
                 </button>

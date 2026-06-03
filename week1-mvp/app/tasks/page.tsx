@@ -8,7 +8,7 @@
  *
  * v1 简单版：
  *   - 拉 /api/jobs/active 列出全部进行中任务
- *   - 顶部 tab 按 feature 过滤（全部 / 批量摄影 / 服饰场景图 / 颜色批改 / 形象生成）
+ *   - 顶部 tab 按 feature 过滤（全部 / 批量摄影 / 家居场景图 / 颜色批改 / 参考生成）
  *   - 每条任务一个进度卡片：feature + 模型 + 进度条 + 完成 / 总数 + 缩略图列 + 跳详情
  *
  * v2（未来 Task 7 后续迭代）：
@@ -49,7 +49,7 @@ const FEATURE_META: Record<
   { label: string; icon: typeof Camera; href: string; tone: string }
 > = {
   batch_photo: { label: "批量摄影", icon: Camera, href: "/batch-photo", tone: "text-brand-500" },
-  scene_tools: { label: "服饰场景图", icon: Layers, href: "/scene-tools", tone: "text-purple-500" },
+  scene_tools: { label: "家居场景图", icon: Layers, href: "/scene-tools", tone: "text-purple-500" },
   recolor: { label: "颜色批改", icon: Palette, href: "/recolor", tone: "text-pink-500" },
   other: { label: "其他", icon: User, href: "/", tone: "text-fg-tertiary" },
 };
@@ -106,7 +106,7 @@ export default function TasksPage() {
     },
     {
       value: "scene_tools",
-      label: `服饰场景图${featureCounts.scene_tools ? `（${featureCounts.scene_tools}）` : ""}`,
+      label: `家居场景图${featureCounts.scene_tools ? `（${featureCounts.scene_tools}）` : ""}`,
     },
     {
       value: "recolor",
@@ -175,7 +175,7 @@ export default function TasksPage() {
             </Link>{" "}
             /{" "}
             <Link href="/scene-tools" className="text-brand-400 hover:underline">
-              服饰场景图
+              家居场景图
             </Link>{" "}
             /{" "}
             <Link href="/recolor" className="text-brand-400 hover:underline">
