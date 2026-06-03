@@ -5,9 +5,11 @@ import { GlobalShell } from "./_components/global-shell";
 import { getCurrentUser, ensureInitialAdmin } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "服装AI生图工具",
-  description: "服装电商团队内部使用的 AI 批量图像处理工具",
+  title: "家居软品AI生图工具",
+  description: "枕头、枕套、眼罩、发圈、凉感被、夏被、羽绒被电商团队内部 AI 批量图像工具",
 };
+
+export const dynamic = "force-dynamic";
 
 export default async function RootLayout({
   children,

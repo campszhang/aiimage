@@ -72,7 +72,7 @@ function LoginForm() {
             <Sparkles size={18} strokeWidth={2.2} />
           </span>
           <h1 className="text-[18px] font-bold text-fg-primary tracking-tight">
-            服装AI生图工具
+            家居软品AI生图工具
           </h1>
         </div>
         <p className="text-[12px] text-fg-tertiary mb-6 ml-[52px]">

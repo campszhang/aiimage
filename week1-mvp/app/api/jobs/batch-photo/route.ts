@@ -68,10 +68,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const identityId = Number(formData.get("identity_id"));
+    let identityId = Number(formData.get("identity_id"));
     const templateId = Number(formData.get("template_id"));
-    if (!Number.isFinite(identityId))
-      return NextResponse.json({ error: "请选择模特" }, { status: 400 });
     if (!Number.isFinite(templateId))
       return NextResponse.json({ error: "请选择 Prompt 模板" }, { status: 400 });
 
@@ -103,13 +101,13 @@ export async function POST(req: NextRequest) {
     } catch {}
     if (poseIds.length === 0) {
       return NextResponse.json(
-        { error: "请至少选择一个姿势" },
+        { error: "请至少选择一个镜头" },
         { status: 400 },
       );
     }
     if (poseIds.length > 10) {
       return NextResponse.json(
-        { error: "一次最多 10 个姿势" },
+        { error: "一次最多 10 个镜头" },
         { status: 400 },
       );
     }
@@ -253,6 +251,19 @@ export async function POST(req: NextRequest) {
         : "";
 
     // ─── 加载素材元信息 ───
+    // 家居软品模板不会把 identity 图传给模型，但旧 job 参数和旧数据库结构仍需要
+    // 一个 identity 记录参与兼容字段落库。前端未传时自动取第一条。
+    if (!Number.isFinite(identityId)) {
+      const fallback = db
+        .prepare(
+          `SELECT id FROM models WHERE kind = 'identity' ORDER BY sort_order ASC, id ASC LIMIT 1`,
+        )
+        .get() as { id: number } | undefined;
+      if (fallback) identityId = fallback.id;
+    }
+    if (!Number.isFinite(identityId))
+      return NextResponse.json({ error: "请先添加一张参考图" }, { status: 400 });
+
     const identity = db
       .prepare(
         `SELECT id, name, image_path, category FROM models WHERE id = ? AND kind = 'identity'`,
@@ -261,7 +272,7 @@ export async function POST(req: NextRequest) {
       | { id: number; name: string; image_path: string; category: string | null }
       | undefined;
     if (!identity)
-      return NextResponse.json({ error: "模特不存在" }, { status: 404 });
+      return NextResponse.json({ error: "参考图不存在" }, { status: 404 });
 
     // 加载额外场景（如果有）；必须 usage='single'
     type ExtraScene = { id: number; name: string; image_path: string };
@@ -345,14 +356,14 @@ export async function POST(req: NextRequest) {
       .all(...poseIds) as PoseRow[];
     if (poses.length === 0) {
       return NextResponse.json(
-        { error: "选中的姿势都不存在" },
+        { error: "选中的镜头都不存在" },
         { status: 404 },
       );
     }
 
     const materials = getMaterialsByIds(materialIds);
 
-    // 同一个 batch 共享一个 random seed，保证多张图模特脸/光线/背景的一致性
+    // 同一个 batch 共享一个 random seed，保证多张图光线/背景/产品一致性
     const batchSeed = Math.floor(Math.random() * 2_147_483_647);
 
     // 整批锁定一种鞋型。
@@ -678,17 +689,16 @@ async function batchPhotoItemHandler(
       const it = extraItems[extraIdx];
       sceneNameForPrompt = it.scene_name;
       sceneImagePath = it.scene_image_path;
-      // 新版自由互动姿势：不绑定 poses 表，让模型按场景物件互动
-      // 多张变体用 getVariantCameraHint 给每张钉死镜头预设（角度 / 朝向 / 距离 /
-      // 构图），让模型在该预设下变姿势，不能偷懒回退到默认正面全身
+      // 新版自由摆放：不绑定旧 poses 表，让模型按场景物件做产品摆放。
+      // 多张变体用 getVariantCameraHint 给每张钉死镜头预设。
       const cameraHint = getVariantCameraHint(
         it.variant_idx,
         it.variant_total,
       );
       pose = {
         id: 0,
-        name: it.variant_total > 1 ? `变体 ${it.variant_idx}/${it.variant_total}` : "自由互动",
-        text: `按场景图（IMAGE 4）里的家具 / 门 / 桌子 / 道具自然互动，挑 1-2 个物件发生动作（坐 / 倚 / 撑 / 拿 / 触摸 / 走过）。姿势从场景里"长出来"，不要站正中央 + 双手垂直。${cameraHint}`,
+        name: it.variant_total > 1 ? `变体 ${it.variant_idx}/${it.variant_total}` : "自由摆放",
+        text: `按场景图里的床、沙发、椅子、台面、托盘、织物层次或道具自然摆放产品。让产品平铺、折叠、叠放、靠放或组合陈列，必须有真实接触阴影，不要生成真人、假人、身体部位、鞋或服装穿搭。${cameraHint}`,
         type: "full",
       };
     } else if (extraPairs && extraPairs[extraIdx]) {
@@ -727,8 +737,8 @@ async function batchPhotoItemHandler(
       name:
         it.variant_total > 1
           ? `文字场景 · 变体 ${it.variant_idx}/${it.variant_total}`
-          : "文字场景 · 自由互动",
-      text: `按下方场景文字描述里出现的物件（家具 / 门 / 桌子 / 楼梯 / 栏杆 / 道具）自然互动，挑 1-2 个发生动作（坐 / 倚 / 撑 / 拿 / 触摸 / 走过）。${cameraHint}`,
+          : "文字场景 · 自由摆放",
+      text: `按下方场景文字描述里出现的床、沙发、椅子、台面、托盘、织物层次或道具自然摆放产品。让产品平铺、折叠、叠放、靠放或组合陈列，必须有真实接触阴影，不要生成真人、假人、身体部位、鞋或服装穿搭。${cameraHint}`,
       type: "full",
     };
     framingBlock = `══════════════════════════════════════════════════════════
@@ -736,9 +746,9 @@ async function batchPhotoItemHandler(
 ══════════════════════════════════════════════════════════
 
 The background scene is fully described by the text below. Render the
-model into this scene as if photographed on location. Read the description
-carefully — identify the furniture / doors / surfaces / props mentioned —
-and have the model interact naturally with one or two of them.
+home textile product into this scene as if photographed on location. Read the description
+carefully — identify the bed, sofa, chair, tabletop, tray, fabric layers or props mentioned —
+and place the product naturally on or beside one or two of them.
 
 【场景文字描述】
 ${it.text}
@@ -754,7 +764,7 @@ ${FRAMING_TIGHT_SINGLE}`;
     );
   }
 
-  // 读模特图 + (可选)场景图 + 产品图
+  // 读兼容参考图 + (可选)场景图 + 产品图
   type ImgInput = { buffer: Buffer; mimeType: string };
   const identityAbs = path.join(DATA_DIR_PATH, p.identity.image_path);
   const identityBuf = await fs.readFile(identityAbs);
@@ -787,7 +797,18 @@ ${FRAMING_TIGHT_SINGLE}`;
   }
 
   const qualityLevel = p.quality_level || "2k";
-  const qualityHintText = `【输出质量 / Output Quality】${
+  const isHomeTextileTemplate = p.template.name.includes("家居软品");
+
+  const qualityHintText = isHomeTextileTemplate
+    ? `【输出质量 / Output Quality】${
+      qualityLevel === "4k" ? "4K 超清" : qualityLevel === "2k" ? "2K 高清" : "HD 清晰"
+    }
+- 必须输出 ${qualityLevel.toUpperCase()} 级别的清晰锐利图像
+- 即使输入模糊也要 REDRAW / 重新渲染整张图，让产品清晰锐利
+- 所有细节（面料纤维 / 包边车线 / 绗缝 / 拉链 / 丝绸高光 / 填充蓬松度）必须清晰可辨
+- 产品必须完整居中，不能裁切边角、绑带、被子边缘或发圈轮廓
+- 产品必须自然放置在床、沙发、椅子或台面上，有真实接触阴影`
+    : `【输出质量 / Output Quality】${
     qualityLevel === "4k" ? "4K 超清" : qualityLevel === "2k" ? "2K 高清" : "HD 清晰"
   }
 - 必须输出 ${qualityLevel.toUpperCase()} 级别的清晰锐利图像
@@ -806,7 +827,7 @@ ${FRAMING_TIGHT_SINGLE}`;
     garment_attrs: p.garment_attrs_text || "",
     material_details: p.material_details_text || "",
     pose: `${pose.name}：${pose.text}`,
-    // 表情维度（独立于姿势的全局描述，仅描述脸 / 眼神 / 嘴 / 视线 / 情绪）
+    // 家居模板会忽略 expression；旧模板保留此占位。
     expression: p.expression_text || "嘴角放松微抿，眼神平和，气质沉静自然",
     photography_params: p.photography_params_text || "",
     realism_constraints: p.realism_constraints_text || "",
@@ -825,16 +846,20 @@ ${FRAMING_TIGHT_SINGLE}`;
   // 修复了模板里硬写"参考图 1-2"在产品数不为 2 时索引错位的问题
   const manifest = buildImageManifest({
     productCount: productInputs.length,
-    hasIdentity: true,
+    hasIdentity: !isHomeTextileTemplate,
     hasScene: sceneInput !== null,
     sceneName: sceneInput ? sceneNameForPrompt : undefined,
   });
   const finalPrompt = `${manifest}\n${filledTemplate}\n\n${qualityHintText}\n\n${framingBlock}`;
 
   // 注意：纯色 item 不传 scene image
-  const parts: ImgInput[] = sceneInput
-    ? [...productInputs, identityInput, sceneInput]
-    : [...productInputs, identityInput];
+  const parts: ImgInput[] = isHomeTextileTemplate
+    ? sceneInput
+      ? [...productInputs, sceneInput]
+      : productInputs
+    : sceneInput
+      ? [...productInputs, identityInput, sceneInput]
+      : [...productInputs, identityInput];
 
   const imageSize: "1K" | "2K" | "4K" =
     qualityLevel === "4k" ? "4K" : qualityLevel === "hd" ? "1K" : "2K";

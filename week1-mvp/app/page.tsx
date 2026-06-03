@@ -26,16 +26,16 @@ export default async function HomePage() {
   }> = [
     {
       href: "/batch-photo",
-      title: "批量摄影图",
-      subtitle: "产品图 + 模特 + N 姿势 + 纯色 / 场景 → 一键批量出图",
+      title: "软品批量摄影图",
+      subtitle: "枕头 / 枕套 / 眼罩 / 发圈 / 被类产品图 → 主图、场景、细节一键批量出图",
       icon: <Camera size={24} strokeWidth={2} />,
       gradient: "indigo",
       badge: "主力",
     },
     {
       href: "/scene-tools",
-      title: "服饰场景图",
-      subtitle: "N 张产品 × M 个场景（文字 / 图片混搭）= N×M 张换景成片",
+      title: "家居场景图",
+      subtitle: "N 张软品 × 卧室 / 客厅 / 酒店 / 夏日凉感场景 = 批量生活方式图",
       icon: <Sparkles size={24} strokeWidth={2} />,
       gradient: "purple",
       badge: "新",
@@ -43,14 +43,14 @@ export default async function HomePage() {
     {
       href: "/recolor",
       title: "HEX 精准换色",
-      subtitle: "一张产品图 + 多个 HEX 颜色 → 同款不同色批量产出",
+      subtitle: "枕套、眼罩、发圈、被面一张图 + 多个 HEX → 同款不同色批量产出",
       icon: <Palette size={24} strokeWidth={2} />,
       gradient: "blue",
     },
     {
       href: "/admin/identity-generator",
-      title: "形象生成",
-      subtitle: "文字描述 → AI 生成模特身份图，commit 进 identity 库",
+      title: "参考图生成",
+      subtitle: "文字描述 → AI 生成空间 / 材质 / 产品参考图，沉淀到参考库",
       icon: <Users2 size={24} strokeWidth={2} />,
       gradient: "pink",
       adminOnly: true,
@@ -90,12 +90,12 @@ export default async function HomePage() {
             </span>
           </div>
           <h1 className="text-[32px] md:text-[38px] font-display text-fg-primary leading-tight">
-            AI 极简操作，
+            家居软品 AI 极简操作，
             <br className="md:hidden" />
-            一键开启全新创作体验
+            一键生成电商套图
           </h1>
           <p className="mt-3 text-[14px] md:text-[15px] text-fg-tertiary">
-            从下面选一个工具开始，左侧导航可随时切换。
+            覆盖枕头、枕套、眼罩、发圈、凉感被、夏被、羽绒被。左侧导航可随时切换工具。
           </p>
         </section>
 
@@ -130,9 +130,9 @@ export default async function HomePage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {[
                 { href: "/admin/scenes", label: "场景库" },
-                { href: "/admin/models", label: "模特库" },
-                { href: "/admin/poses", label: "姿势库" },
-                { href: "/admin/expressions", label: "表情库" },
+                { href: "/admin/models", label: "参考图库" },
+                { href: "/admin/poses", label: "镜头库" },
+                { href: "/admin/expressions", label: "氛围库" },
                 { href: "/admin/colors", label: "颜色库" },
                 { href: "/admin/materials", label: "材质库" },
                 { href: "/admin/realism", label: "真实感预设" },
@@ -158,7 +158,7 @@ export default async function HomePage() {
         )}
 
         <footer className="mt-16 text-center text-xs text-fg-muted">
-          BUQIQI · v0.4 · Powered by Gemini
+          HOME TEXTILE AI · v1.0 · Powered by Gemini / OpenAI
         </footer>
       </div>
     </HomeShell>

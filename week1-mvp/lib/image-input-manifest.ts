@@ -20,7 +20,7 @@
 export interface ImageManifestOpts {
   /** 产品图数量（1..3） */
   productCount: number;
-  /** 是否包含模特肖像图（identity） */
+  /** 是否包含模特肖像图（identity）。false 时产品图按家居软品解释。 */
   hasIdentity: boolean;
   /** 是否包含场景背景图 */
   hasScene: boolean;
@@ -49,6 +49,22 @@ function productRoleLabel(idx: number, total: number): string {
   return "产品图细节";
 }
 
+function productReferenceLabel(hasIdentity: boolean): string {
+  return hasIdentity ? "PRODUCT GARMENT REFERENCE" : "HOME TEXTILE PRODUCT REFERENCE";
+}
+
+function productExtractText(hasIdentity: boolean): string {
+  return hasIdentity
+    ? "服装本体的颜色 / 面料 / 版型 / 长度 / 领口 / 袖型 / 装饰细节"
+    : "家居软品的类目 / 颜色 / 面料 / 厚度 / 填充蓬松度 / 包边车线 / 绗缝 / 拉链 / 标签 / 图案";
+}
+
+function productIgnoreText(hasIdentity: boolean): string {
+  return hasIdentity
+    ? "图里可能出现的模特脸、姿势、原背景、灯光氛围"
+    : "图里可能出现的人物、身体部位、旧背景、旧灯光、包装杂物或服装穿搭语义";
+}
+
 /**
  * 生成多图输入清单 header。
  *
@@ -63,9 +79,9 @@ export function buildImageManifest(opts: ImageManifestOpts): string {
   for (let i = 0; i < opts.productCount; i++) {
     const role = productRoleLabel(i, opts.productCount);
     lines.push(
-      `▸ Image ${idx} — ${role}（PRODUCT GARMENT REFERENCE）\n` +
-        `   提取：服装本体的颜色 / 面料 / 版型 / 长度 / 领口 / 袖型 / 装饰细节\n` +
-        `   忽略：图里可能出现的模特脸、姿势、原背景、灯光氛围`,
+      `▸ Image ${idx} — ${role}（${productReferenceLabel(opts.hasIdentity)}）\n` +
+        `   提取：${productExtractText(opts.hasIdentity)}\n` +
+        `   忽略：${productIgnoreText(opts.hasIdentity)}`,
     );
     idx++;
   }

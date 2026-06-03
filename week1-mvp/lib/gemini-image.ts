@@ -255,14 +255,14 @@ function buildQualityHint(level: "hd" | "2k" | "4k" = "2k"): string {
   return `【输出质量 / Output Quality】${levelLabel}
 - 必须输出 ${level.toUpperCase()} 级别的清晰锐利图像（${level.toUpperCase()} ultra-high resolution, tack-sharp）
 - **即使输入图片模糊、有噪点、是截图或低像素，你必须 REDRAW / 重新渲染整张图，让它变得锐利清晰**
-- 所有细节必须清晰可辨：面料纹理 / 蕾丝针脚 / 珠片反光 / 发丝 / 皮肤毛孔
+- 所有细节必须清晰可辨：面料纤维 / 包边车线 / 绗缝凹线 / 拉链 / 丝绸高光 / 填充蓬松度
 - 不保留输入图的任何瑕疵：模糊、压缩块、噪点、色带都必须被重新生成的清晰版本覆盖
 - 参考标准：专业电商摄影或时尚杂志的精修直出，印刷级清晰度 (magazine-quality, print-ready)
 - 关键词强化：sharp focus, crystal clear, ultra-detailed, high-resolution, photorealistic, 8K textures
 
 【构图约束 / Composition - 非常重要】
-- **主体（服装 / 模特）必须位于画面中心区域**，水平居中或居中偏左 40-60%，不要靠画面边缘
-- 主体完整呈现，**不能被裁切**（包括头顶、脚部、手臂、裙摆等）
+- **主体（家居软品产品）必须位于画面中心区域**，水平居中或居中偏左 40-60%，不要靠画面边缘
+- 主体完整呈现，**不能被裁切**（包括枕头边角、被子边缘、眼罩绑带、发圈轮廓等）
 - 高分辨率 (${level.toUpperCase()}) 输出时，保持构图稳定，**不要因画幅变大而让主体偏离中心或变小留太多空白**
 - 关键词：subject centered, stable composition, full subject visible, no cropping of subject`;
 }
@@ -281,10 +281,10 @@ export function buildRecolorPrompt(
   const original = options.originalColorName?.trim();
 
   const parts: string[] = [
-    `你是一位专业的服装电商修图师。请严格按照以下要求执行**完整的颜色替换**（不是微调）。`,
+    `你是一位专业的家居软品电商修图师。请严格按照以下要求执行**完整的颜色替换**（不是微调）。`,
     ``,
     `【目标颜色 / Target Color · ⚠️ 严格匹配，零偏差】`,
-    `必须把这件服装的主色调精确替换为：`,
+    `必须把这个家居软品产品的主色调精确替换为：`,
     `  ▸ ${colorMultiRepr}`,
     `输出图的主色像素值必须严格落在目标色附近（CIE76 ΔE ≤ 5），不允许：`,
     `  ✗ 朝训练分布"中性化"漂移（保持纯度不要 desaturate）`,
@@ -297,7 +297,7 @@ export function buildRecolorPrompt(
     parts.push(
       ``,
       `【⚠️ 关键：必须改变颜色 / Critical: Must Change】`,
-      `输入图中服装的当前主色是「${original}」。`,
+      `输入图中产品的当前主色是「${original}」。`,
       `你的任务是把它**完全替换**为上面指定的目标色 ${colorMultiRepr.split(" · ")[0]}。`,
       `**即使原色和目标色看起来相近，也必须执行完整的颜色替换** —— 视觉上必须可清晰识别为"新颜色"。`,
       `禁止"几乎不变"或"略微调整"的输出 —— 那是失败结果。`,
@@ -316,7 +316,7 @@ export function buildRecolorPrompt(
       ``,
       `【色卡参考图 / Color Reference Swatch】`,
       `**最后一张参考图是目标色色卡**（256×256 纯色块，仅供颜色锚定）。`,
-      `服装主色必须严格匹配色卡所示颜色 —— 这是颜色一致性的硬约束：`,
+      `产品主色必须严格匹配色卡所示颜色 —— 这是颜色一致性的硬约束：`,
       `  ▸ 同一批次的多张图、跨多次调用的输出，主色都必须对齐到这张色卡`,
       `  ▸ 直接用色卡里的像素值作为目标，不要自行解读 HEX 字符串`,
       `  ▸ ⚠️ 色卡只用于颜色提取，**不要把色卡的形状/边界/纯色块复制到输出图里**`,
@@ -324,7 +324,7 @@ export function buildRecolorPrompt(
   }
 
   if (options.garmentAttrs) {
-    parts.push("", "【款式信息 / Garment Info】", options.garmentAttrs);
+    parts.push("", "【产品信息 / Product Info】", options.garmentAttrs);
   }
 
   if (options.materialDetails) {
@@ -334,15 +334,15 @@ export function buildRecolorPrompt(
   parts.push(
     "",
     `【必须保留 / Must Preserve】`,
-    `- 服装的廓形、版型、长度、剪裁细节`,
-    `- 面料质感：必须严格按上述材质规则渲染（不同材质的光泽/透光/纹理差异绝不能混淆）`,
-    `- 所有装饰细节（蕾丝、刺绣、珠片、褶皱、蝴蝶结、系带等）完全不动`,
-    `- 模特（如有）的姿势、面部、发型、肤色、背景`,
+    `- 产品形状、尺寸比例、厚度、蓬松度和软塌程度`,
+    `- 面料质感：必须严格按上述材质规则渲染（棉、丝、凉感纤维、绒面、羽绒填充不能混淆）`,
+    `- 所有结构细节（包边、车线、绗缝、拉链、标签、刺绣、印花、褶皱等）完全不动`,
+    `- 原图构图、背景、接触阴影和产品摆放关系`,
     ``,
-    `【只改 / Only Change】服装主体的主色调`,
+    `【只改 / Only Change】产品主体的主色调`,
     `- 改后的颜色要自然地覆盖所有大面积的布料`,
-    `- 蕾丝、刺绣等装饰保持与主色协调（比如白色蕾丝不变，同色蕾丝要跟着变）`,
-    `- 阴影和高光要符合新颜色在该材质下的光泽特性（缎面有强反光，雪纺无强反光等）`,
+    `- 刺绣、印花、标签、拉链、滚边等细节按原设计保留；同色包边可随主色协调变化`,
+    `- 阴影和高光要符合新颜色在该材质下的光泽特性（真丝有柔亮高光，长绒棉哑光，凉感纤维冷调平滑）`,
     `- 阴影区域可暗一些，高光区域可亮一些，但**主色平均值必须落在目标 RGB 附近**`,
   );
 
@@ -355,7 +355,7 @@ export function buildRecolorPrompt(
 
   parts.push(
     "",
-    `【其他要求】保持商品摄影级质感，不要添加水印、logo、文字等任何额外元素。`,
+    `【其他要求】保持家居电商商品摄影级质感，不要添加水印、logo、文字、人物、鞋履、服装穿搭等任何额外元素。`,
   );
 
   if (options.userSeed?.trim()) {

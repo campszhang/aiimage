@@ -91,7 +91,7 @@ type SceneEntry =
     };
 
 const FOCUS_MODES: Array<{ value: FocusMode; label: string; hint: string }> = [
-  { value: "model_first", label: "🎯 模特主体", hint: "占比 70-80%（默认）" },
+  { value: "model_first", label: "🎯 产品主体", hint: "占比 70-80%（默认）" },
   { value: "balanced", label: "⚖️ 场景平衡", hint: "占比 50-60%" },
   { value: "environmental", label: "🏛️ 环境氛围", hint: "占比 30-40%" },
 ];
@@ -751,13 +751,13 @@ export default function SceneToolsPage() {
         <div className="space-y-1">
           <h2 className="text-2xl font-display text-[#23251d] flex items-center gap-2">
             <Sparkles size={20} className="text-[#b17816]" strokeWidth={2.2} />
-            服饰场景图工作台
+            家居场景图工作台
             <span className="text-xs font-semibold bg-[#fbe9bd] text-[#23251d] border border-[#f0cf6e] px-2.5 py-0.5 rounded">
               内部使用版
             </span>
           </h2>
           <p className="text-xs text-[#6c6e63] leading-relaxed max-w-2xl">
-            上传服装产品图 → 空间模板选择（可配置多视角常规照 / 特写拍摄张数）→ 自动物理解析材质，并行批量渲染大片。
+            上传家居软品产品图 → 空间模板选择（可配置多视角常规照 / 特写拍摄张数）→ 自动物理解析材质，并行批量渲染大片。
           </p>
         </div>
         <button
@@ -773,9 +773,9 @@ export default function SceneToolsPage() {
         <div className="p-4 rounded-[10px] bg-[#f9efd6] border border-[#f0d9a0] flex items-start gap-3">
           <Info size={18} className="text-[#b17816] shrink-0 mt-0.5" />
           <div className="flex-1 text-xs leading-relaxed space-y-1 text-[#4d4f46]">
-            <div className="font-bold text-[13px] text-[#23251d]">服饰场景图 · 使用说明</div>
+            <div className="font-bold text-[13px] text-[#23251d]">家居场景图 · 使用说明</div>
             <ul className="list-disc pl-4 space-y-1">
-              <li><strong>第一步</strong>：上传产品图（含模特 + 服装），首张会自动识别面料并配材质词库。</li>
+              <li><strong>第一步</strong>：上传产品图（产品参考图），首张会自动识别面料并配材质词库。</li>
               <li><strong>第二步</strong>：加场景——文字描述 / 场景图库 / 点预设缩略图；每个场景独立配「常规张数 + 特写镜头」。</li>
               <li><strong>第三步</strong>：右侧设画面焦点 / 画质 / 比例，确认张数与费用后「立即出图」。</li>
               <li>出图数量 = 产品图数 × Σ(每场景的常规张数 + 特写数)。</li>
@@ -808,7 +808,7 @@ export default function SceneToolsPage() {
                   产品图 <span className="text-xs text-[#9b9c92] font-normal">({products.length} 张)</span>
                 </h3>
               </div>
-              <span className="text-[11px] text-[#6c6e63]">含模特 + 服装</span>
+              <span className="text-[11px] text-[#6c6e63]">产品参考图</span>
             </div>
 
             {products.length === 0 ? (
@@ -868,7 +868,7 @@ export default function SceneToolsPage() {
             {(allMaterials.length > 0 || analyzing) && (
               <div className="mt-5 pt-5 border-t border-[#e5e7e0]">
                 <p className="text-[11px] font-bold text-[#6c6e63] mb-2 flex items-center gap-1.5">
-                  <Shirt className="w-3.5 h-3.5 text-[#b17816]" /> 服装材质
+                  <Shirt className="w-3.5 h-3.5 text-[#b17816]" /> 软品材质
                   {analyzing && <span className="text-[#9b9c92] font-normal">· 分析中…</span>}
                   {!analyzing && matchedMaterialIds.length > 0 && <span className="text-[#2c8c66] font-normal">· 已识别 {matchedMaterialIds.length} 种</span>}
                 </p>
@@ -1137,11 +1137,11 @@ export default function SceneToolsPage() {
               <p className="text-4xl font-extrabold text-[#23251d] mt-2 tracking-tight relative flex items-baseline gap-1">
                 {totalCount} <span className="text-xs text-[#6c6e63] font-normal">张图</span>
               </p>
-              <p className="text-[10px] text-[#9b9c92] mt-2 relative">{products.length} 款服装 × {sceneTotal} 个机位 / 视角</p>
+              <p className="text-[10px] text-[#9b9c92] mt-2 relative">{products.length} 款软品 × {sceneTotal} 个机位 / 视角</p>
             </div>
             <div className="space-y-3 mb-5 text-xs text-[#4d4f46]">
               <div className="flex justify-between items-center bg-[#f6f5f4] p-2.5 rounded-[6px] border border-[#e5e7e0]">
-                <span className="text-[#6c6e63]">待加工服饰:</span><span className="font-bold text-[#4d4f46]">{products.length} 款</span>
+                <span className="text-[#6c6e63]">待加工软品:</span><span className="font-bold text-[#4d4f46]">{products.length} 款</span>
               </div>
               <div className="flex justify-between items-center bg-[#f6f5f4] p-2.5 rounded-[6px] border border-[#e5e7e0]">
                 <span className="text-[#6c6e63]">已选空间:</span><span className="font-bold text-[#4d4f46]">{scenes.length} 个</span>

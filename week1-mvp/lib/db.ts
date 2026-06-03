@@ -1,16 +1,25 @@
 import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
+import {
+  HOME_TEXTILE_COLORS,
+  HOME_TEXTILE_DETAIL_TEMPLATE,
+  HOME_TEXTILE_MATERIALS,
+  HOME_TEXTILE_PHOTOGRAPHY,
+  HOME_TEXTILE_PROMPT_TEMPLATE,
+  HOME_TEXTILE_REALISM,
+  HOME_TEXTILE_SCENES,
+} from "./home-textile";
 
 /**
  * SQLite 单例
  *
- * - 数据库文件位于 /app/data/app.db（容器内）
+ * - 数据库文件位于 DATA_DIR/app.db（Docker 中默认为 /app/data）
  * - 宿主机路径：项目目录下的 ./data/app.db（通过 docker volume 映射持久化）
  * - 进程启动时自动执行 migrate()
  */
 
-const DATA_DIR = process.env.DATA_DIR || "/app/data";
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app.db");
 
 let _db: Database.Database | null = null;
@@ -587,6 +596,8 @@ function migrate(db: Database.Database) {
   migrateSeedTextScenesV1(db);
   // 场景分类 v1 种子（把 lib/scene-categories.ts 的 6 条种进 scene_categories 表）
   migrateSeedSceneCategoriesV1(db);
+  // 家居软品 v1：覆盖新部署默认业务域（枕头 / 枕套 / 眼罩 / 发圈 / 被类）
+  migrateHomeTextileDefaultsV1(db);
 }
 
 /**
@@ -3233,4 +3244,292 @@ function migrateSeedSceneCategoriesV1(db: Database.Database) {
   console.log(
     `[db] migrateSeedSceneCategoriesV1: 种 ${inserted}/${SEED.length} 个分类（已标记 ${FLAG}=done）`,
   );
+}
+
+/**
+ * 家居软品 v1 默认库。
+ *
+ * 目标：新服务器启动后，工具默认服务于枕头、枕套、眼罩、发圈、凉感被、
+ * 夏被、羽绒被，而不是历史女装场景。保留旧表名以减少改造风险。
+ */
+function migrateHomeTextileDefaultsV1(db: Database.Database) {
+  const FLAG = "migrated_home_textile_defaults_v2";
+  const flag = db
+    .prepare(`SELECT value FROM settings WHERE key = ?`)
+    .get(FLAG) as { value: string } | undefined;
+  if (flag?.value === "done") return;
+
+  const insertColor = db.prepare(
+    `INSERT INTO colors (name, hex, color_group, is_popular, sort_order)
+     VALUES (@name, @hex, @color_group, 1, @sort_order)`,
+  );
+  const findColor = db.prepare(`SELECT id FROM colors WHERE name = ?`);
+
+  const insertMaterial = db.prepare(
+    `INSERT INTO materials
+      (name, english_name, aliases, description, visual_traits, light_behavior, texture_rules, dont_confuse_with, sort_order)
+     VALUES
+      (@name, @english_name, @aliases, @description, @visual_traits, @light_behavior, @texture_rules, @dont_confuse_with, @sort_order)`,
+  );
+  const findMaterial = db.prepare(`SELECT id FROM materials WHERE name = ?`);
+
+  const insertTextScene = db.prepare(
+    `INSERT OR IGNORE INTO text_scenes
+       (name, group_name, text_prompt, thumb_path, notes, sort_order)
+     VALUES (@name, @group_name, @text_prompt, NULL, @notes, @sort_order)`,
+  );
+
+  const insertPhotography = db.prepare(
+    `INSERT INTO photography_params
+       (name, description, params_text, is_default, sort_order)
+     VALUES (@name, @description, @params_text, @is_default, @sort_order)`,
+  );
+  const findPhotography = db.prepare(
+    `SELECT id FROM photography_params WHERE name = ?`,
+  );
+
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM colors`).run();
+    db.prepare(`DELETE FROM materials`).run();
+    db.prepare(`DELETE FROM text_scenes`).run();
+    db.prepare(`DELETE FROM scenes`).run();
+    db.prepare(`DELETE FROM photography_params`).run();
+    db.prepare(`DELETE FROM realism_presets`).run();
+    db.prepare(`DELETE FROM prompt_templates WHERE kind = 'on_model'`).run();
+    db.prepare(`DELETE FROM poses`).run();
+    db.prepare(`DELETE FROM expressions`).run();
+    db.prepare(`DELETE FROM scene_categories`).run();
+
+    let colorInserted = 0;
+    HOME_TEXTILE_COLORS.forEach((c, i) => {
+      if (findColor.get(c.name)) return;
+      const r = insertColor.run({
+        name: c.name,
+        hex: c.hex,
+        color_group: c.group,
+        sort_order: 1000 + i * 10,
+      });
+      colorInserted += r.changes;
+    });
+
+    let materialInserted = 0;
+    HOME_TEXTILE_MATERIALS.forEach((m, i) => {
+      if (findMaterial.get(m.name)) return;
+      const r = insertMaterial.run({ ...m, sort_order: 1000 + i * 10 });
+      materialInserted += r.changes;
+    });
+
+    let sceneInserted = 0;
+    HOME_TEXTILE_SCENES.forEach((s, i) => {
+      const r = insertTextScene.run({
+        name: s.name,
+        group_name: s.group_name,
+        text_prompt: s.text_prompt,
+        notes: "家居软品默认场景",
+        sort_order: 1000 + i * 10,
+      });
+      sceneInserted += r.changes;
+    });
+
+    db.prepare(`UPDATE photography_params SET is_default = 0`).run();
+    let photoInserted = 0;
+    HOME_TEXTILE_PHOTOGRAPHY.forEach((p, i) => {
+      const existing = findPhotography.get(p.name) as { id: number } | undefined;
+      if (existing) {
+        db.prepare(
+          `UPDATE photography_params
+             SET description = ?, params_text = ?, is_default = ?, sort_order = ?
+           WHERE id = ?`,
+        ).run(
+          p.description,
+          p.params_text,
+          p.is_default,
+          p.sort_order,
+          existing.id,
+        );
+        return;
+      }
+      const r = insertPhotography.run({
+        ...p,
+        sort_order: 1000 + i * 10,
+      });
+      photoInserted += r.changes;
+    });
+
+    db.prepare(`UPDATE realism_presets SET is_default = 0`).run();
+    const realismExisting = db
+      .prepare(`SELECT id FROM realism_presets WHERE name = ?`)
+      .get(HOME_TEXTILE_REALISM.name) as { id: number } | undefined;
+    if (realismExisting) {
+      db.prepare(
+        `UPDATE realism_presets
+           SET description = ?, constraints_text = ?, is_default = 1, sort_order = ?
+         WHERE id = ?`,
+      ).run(
+        HOME_TEXTILE_REALISM.description,
+        HOME_TEXTILE_REALISM.constraints_text,
+        HOME_TEXTILE_REALISM.sort_order,
+        realismExisting.id,
+      );
+    } else {
+      db.prepare(
+        `INSERT INTO realism_presets
+          (name, description, constraints_text, is_default, sort_order)
+         VALUES (?, ?, ?, 1, ?)`,
+      ).run(
+        HOME_TEXTILE_REALISM.name,
+        HOME_TEXTILE_REALISM.description,
+        HOME_TEXTILE_REALISM.constraints_text,
+        HOME_TEXTILE_REALISM.sort_order,
+      );
+    }
+
+    // Make the first home prompt the default selectable template.
+    db.prepare(
+      `INSERT INTO prompt_templates (name, kind, template, notes, sort_order)
+       VALUES (?, 'on_model', ?, ?, ?)`,
+    ).run(
+      "家居软品场景图",
+      HOME_TEXTILE_PROMPT_TEMPLATE,
+      "枕头 / 枕套 / 眼罩 / 发圈 / 凉感被 / 夏被 / 羽绒被主力模板",
+      10,
+    );
+    db.prepare(
+      `INSERT INTO prompt_templates (name, kind, template, notes, sort_order)
+       VALUES (?, 'on_model', ?, ?, ?)`,
+    ).run(
+      "家居软品细节图",
+      HOME_TEXTILE_DETAIL_TEMPLATE,
+      "面料、包边、绗缝、丝绸光泽、凉感纹理等详情页特写",
+      20,
+    );
+
+    const homeShots = [
+      {
+        name: "主图 · 浅底完整产品",
+        text: "浅米白或浅灰极简背景，产品完整居中呈现，边缘不裁切，保留真实接触阴影。适合枕头、枕套、眼罩、发圈、凉感被、夏被、羽绒被主图。",
+        type: "full",
+        tags: "主图,浅底,完整产品",
+        is_hero: 1,
+        sort_order: 10,
+      },
+      {
+        name: "卧室床铺生活方式",
+        text: "产品自然放在床上或床头区域，床品柔软铺开，清晨窗光，构图干净，高级家居目录质感。",
+        type: "full",
+        tags: "卧室,床铺,生活方式",
+        is_hero: 1,
+        sort_order: 20,
+      },
+      {
+        name: "客厅沙发软装",
+        text: "产品自然摆放在布艺沙发或休闲椅上，旁边有低饱和软装道具，真实接触阴影，突出家居搭配感。",
+        type: "full",
+        tags: "客厅,沙发,软装",
+        is_hero: 0,
+        sort_order: 30,
+      },
+      {
+        name: "夏日凉感平铺",
+        text: "清爽明亮的夏季床面或白色台面，产品轻薄平铺，冷调自然光，突出凉感、透气和轻盈。",
+        type: "full",
+        tags: "夏季,凉感,平铺",
+        is_hero: 0,
+        sort_order: 40,
+      },
+      {
+        name: "羽绒被蓬松展示",
+        text: "羽绒被或枕头在床面上自然鼓起，绗缝分格和蓬松填充清晰，顶部柔亮、缝线凹陷处有自然阴影。",
+        type: "half",
+        tags: "羽绒,蓬松,绗缝",
+        is_hero: 0,
+        sort_order: 50,
+      },
+      {
+        name: "眼罩发圈组合静物",
+        text: "眼罩和发圈作为小件静物自然摆放在床头柜、丝绸枕套或浅色台面上，柔和近景，突出丝绸光泽和柔软褶皱。",
+        type: "half",
+        tags: "眼罩,发圈,静物",
+        is_hero: 0,
+        sort_order: 60,
+      },
+      {
+        name: "细节 · 包边车线",
+        text: "微距拍摄产品边缘、包边、车线、拉链或标签，背景简洁虚化，纹理锐利可见。",
+        type: "closeup",
+        tags: "细节,包边,车线",
+        is_hero: 0,
+        sort_order: 70,
+      },
+      {
+        name: "细节 · 面料纹理",
+        text: "极近距离展示面料纤维、丝绸高光、凉感平滑表面、绒面方向或水洗棉自然皱感，真实锐利。",
+        type: "closeup",
+        tags: "细节,面料,纹理",
+        is_hero: 0,
+        sort_order: 80,
+      },
+    ];
+    const insertPose = db.prepare(
+      `INSERT INTO poses (name, text, type, tags, is_hero, sort_order)
+       VALUES (@name, @text, @type, @tags, @is_hero, @sort_order)`,
+    );
+    for (const shot of homeShots) insertPose.run(shot);
+
+    const homeMoods = [
+      {
+        name: "干净电商",
+        text: "干净、克制、准确还原产品，不要戏剧化，不要加入人物",
+        is_default: 1,
+        sort_order: 10,
+      },
+      {
+        name: "温柔睡眠",
+        text: "安静放松、助眠、柔和暖光，适合床品和眼罩场景",
+        is_default: 0,
+        sort_order: 20,
+      },
+      {
+        name: "清爽凉感",
+        text: "明亮、冷感、轻薄、透气，适合凉感被和夏被",
+        is_default: 0,
+        sort_order: 30,
+      },
+      {
+        name: "高级酒店",
+        text: "整洁、高级、蓬松洁净，适合枕头和羽绒被",
+        is_default: 0,
+        sort_order: 40,
+      },
+    ];
+    const insertExpression = db.prepare(
+      `INSERT INTO expressions (name, text, is_default, sort_order)
+       VALUES (@name, @text, @is_default, @sort_order)`,
+    );
+    for (const mood of homeMoods) insertExpression.run(mood);
+
+    // Home-scene category labels for the scene admin UI.
+    const cats = [
+      { key_id: "bedroom", label: "卧室", sort_order: 100 },
+      { key_id: "living", label: "客厅", sort_order: 110 },
+      { key_id: "detail", label: "细节", sort_order: 120 },
+      { key_id: "sleep", label: "睡眠", sort_order: 130 },
+      { key_id: "summer", label: "夏季", sort_order: 140 },
+    ];
+    const insertCat = db.prepare(
+      `INSERT OR IGNORE INTO scene_categories (key_id, label, sort_order)
+       VALUES (@key_id, @label, @sort_order)`,
+    );
+    for (const c of cats) insertCat.run(c);
+
+    db.prepare(
+      `INSERT OR REPLACE INTO settings (key, value, notes) VALUES (?, 'done', ?)`,
+    ).run(
+      FLAG,
+      `家居软品默认库：颜色 ${colorInserted} / 材质 ${materialInserted} / 文字场景 ${sceneInserted} / 摄影 ${photoInserted}`,
+    );
+  });
+
+  tx();
+  console.log(`[db] migrateHomeTextileDefaultsV1: done (${FLAG})`);
 }

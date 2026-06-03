@@ -43,8 +43,8 @@ export interface LeftNavProps {
   activeJobCount?: number;
 }
 
-const BRAND_NAME = "服装AI生图工具";
-const BRAND_SHORT = "服装AI";
+const BRAND_NAME = "家居软品AI生图工具";
+const BRAND_SHORT = "家居软品AI";
 
 export function LeftNav({
   user,
@@ -223,7 +223,7 @@ export function LeftNav({
               {BRAND_SHORT}
             </span>
             <span className="text-[9px] text-fg-tertiary font-mono tracking-tight leading-tight truncate">
-              FASHION AI STUDIO v2.5
+              HOME TEXTILE AI STUDIO v1.0
             </span>
           </span>
         </Link>
@@ -306,14 +306,14 @@ export function LeftNav({
           <NavItem
             href="/batch-photo"
             Icon={Camera}
-            label="批量摄影"
+            label="软品批量摄影"
             active={isActive("/batch-photo")}
             badge={activeJobCount > 0 ? String(activeJobCount) : undefined}
           />
           <NavItem
             href="/scene-tools"
             Icon={Sparkles}
-            label="服饰场景图"
+            label="家居场景图"
             active={isActive("/scene-tools")}
             badge="LIVE"
           />
@@ -357,11 +357,11 @@ export function LeftNav({
               <SubItem href="/admin/colors" label="颜色" active={isActive("/admin/colors")} />
               <SubItem href="/admin/materials" label="材质" active={isActive("/admin/materials")} />
               <SubItem href="/admin/realism" label="真实感" active={isActive("/admin/realism")} />
-              <SubItem href="/admin/models" label="模特" active={isActive("/admin/models")} />
-              <SubItem href="/admin/identity-generator" label="形象生成器" active={isActive("/admin/identity-generator")} />
+              <SubItem href="/admin/models" label="参考图库" active={isActive("/admin/models")} />
+              <SubItem href="/admin/identity-generator" label="参考生成器" active={isActive("/admin/identity-generator")} />
               <SubItem href="/admin/scenes" label="场景" active={isActive("/admin/scenes")} />
-              <SubItem href="/admin/poses" label="姿势" active={isActive("/admin/poses")} />
-              <SubItem href="/admin/expressions" label="表情" active={isActive("/admin/expressions")} />
+              <SubItem href="/admin/poses" label="镜头" active={isActive("/admin/poses")} />
+              <SubItem href="/admin/expressions" label="氛围" active={isActive("/admin/expressions")} />
               <SubItem href="/admin/photography" label="摄影" active={isActive("/admin/photography")} />
               <SubItem href="/admin/prompts" label="Prompt" active={isActive("/admin/prompts")} />
               <SubItem href="/admin/ai-models" label="AI 模型" active={isActive("/admin/ai-models")} />

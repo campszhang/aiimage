@@ -320,7 +320,7 @@ export default function SettingsAdminPage() {
           OpenAI API Key（gpt-image-2）
         </h2>
         <p className="text-xs text-fg-tertiary mb-4">
-          gpt-image-2 用于真实感场景图 / Try-On / 仿图等。
+          gpt-image-2 用于真实感家居场景图 / 软品细节图 / 仿图等。
           <strong>Tier 1 实测限额：5 IPM、月预算 $100。</strong>
           GFW 环境需要配代理（127.0.0.1:7892 之类）。
         </p>

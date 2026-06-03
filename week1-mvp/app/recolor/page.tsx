@@ -955,7 +955,7 @@ export default function RecolorPage() {
 
             {/* Step 3: 材质 —— 始终显示，简单款式不解析也能直接选 */}
             <CollapsibleSection
-              title="③ 服装材质"
+              title="③ 软品材质"
               description={
                 garmentAttrs
                   ? "解析自动匹配，可手动增删"

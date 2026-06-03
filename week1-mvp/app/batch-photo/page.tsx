@@ -137,16 +137,17 @@ const QUALITY_LEVELS: Array<{
 ];
 
 /**
- * 礼服类型选项（伴娘服 / 晚会礼服 / 舞会礼服 / 毕业礼服 / 新娘妈妈礼服）
- * 通过 garment_attrs 走到 prompt 模板的 {{garment_attrs}} 占位符里，影响出图调性。
- * 这是用户主动选择的"创意定位"，不是 AI 解析出来的，所以放在 Step 2 顶部。
+ * 产品类目选项。保留 DRESS_TYPE_OPTIONS 变量名是为了兼容旧页面状态，
+ * 实际业务已经切到家居软品。
  */
 const DRESS_TYPE_OPTIONS: Array<{ value: string; label: string; hint: string }> = [
-  { value: "伴娘服", label: "伴娘服", hint: "婚礼伴娘 · 清新柔美调性" },
-  { value: "晚会礼服", label: "晚会礼服", hint: "鸡尾酒会 / 晚宴 · 优雅高级" },
-  { value: "舞会礼服", label: "舞会礼服", hint: "Prom / 毕业舞会 · 青春闪耀" },
-  { value: "毕业礼服", label: "毕业礼服", hint: "学位 / 谢师礼 · 庄重知性" },
-  { value: "新娘妈妈礼服", label: "新娘妈妈礼服", hint: "Mother-of-the-bride · 端庄典雅" },
+  { value: "枕头", label: "枕头", hint: "睡眠支撑 · 展示蓬松度和轮廓" },
+  { value: "枕套", label: "枕套", hint: "床品搭配 · 展示面料光泽和开口细节" },
+  { value: "眼罩", label: "眼罩", hint: "睡眠仪式感 · 展示丝滑材质和绑带" },
+  { value: "发圈", label: "发圈", hint: "静物组合 · 展示褶皱、弹性和色彩" },
+  { value: "凉感被", label: "凉感被", hint: "夏日清爽 · 展示冷感面料和平铺垂坠" },
+  { value: "夏被", label: "夏被", hint: "轻薄透气 · 展示绗缝和柔软层次" },
+  { value: "羽绒被", label: "羽绒被", hint: "蓬松保暖 · 展示充绒体积和酒店感" },
 ];
 
 /** 纯色背景预设（产品图常用底色） */
@@ -245,10 +246,10 @@ function BatchPhotoTab({
   const [selectedMaterialIds, setSelectedMaterialIds] = useState<number[]>([]);
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
 
-  // ─── 礼服类型（伴娘 / 晚会 / 舞会 / 毕业 / 新娘妈妈）───
-  // 用户上传图片前就先确定，影响 prompt 的"场合 / 风格调性"。
-  // 通过 garment_attrs 的 "礼服类型" key 走到 prompt 模板的 {{garment_attrs}} 占位符。
-  const [dressType, setDressType] = useState<string>("伴娘服");
+  // ─── 产品类目（枕头 / 枕套 / 眼罩 / 发圈 / 被类）───
+  // 用户上传图片前就先确定，影响 prompt 的"场景 / 材质 / 商品调性"。
+  // 通过 garment_attrs 的 "产品类目" key 走到 prompt 模板的 {{garment_attrs}} 占位符。
+  const [dressType, setDressType] = useState<string>("枕头");
 
   // ─── 选择 ───
   const [identityId, setIdentityId] = useState<number | null>(null);
@@ -382,7 +383,7 @@ function BatchPhotoTab({
           if (texts.length > 0) setExtraTextScenes(texts);
         }
         setPrefillBanner(
-          `已从老任务 #${prefillJobId.slice(0, 8)} 预填基础参数（模型 / 比例 / 画质 / 姿势 / 场景）。产品图请重新上传；款式 / 礼服类型请重新解析或挑选。`,
+          `已从老任务 #${prefillJobId.slice(0, 8)} 预填基础参数（模型 / 比例 / 画质 / 姿势 / 场景）。产品图请重新上传；款式 / 产品类目请重新解析或挑选。`,
         );
       })
       .catch(() => {});
@@ -886,7 +887,6 @@ function BatchPhotoTab({
     !submitting &&
     !analyzing &&
     hasProductImages &&
-    identityId !== null &&
     templateId !== null &&
     selectedPoseIds.size > 0 &&
     allExtraPairsConfigured &&
@@ -897,7 +897,7 @@ function BatchPhotoTab({
     if (!canSubmit) {
       notifyHelpers.warn(
         push,
-        "请完成所有必填项（至少正面图 + 模特 / Prompt / 姿势；额外场景需各自配一个姿势）",
+        "请完成所有必填项（至少产品图 + Prompt / 镜头；额外场景需设置数量）",
       );
       return;
     }
@@ -905,7 +905,7 @@ function BatchPhotoTab({
       const ok = confirm(
         `预估花费 ¥${estimate.total_cost_cny.toFixed(2)}，` +
           `超过余额 ¥${estimate.remaining_cny.toFixed(2)}。\n\n` +
-          `建议把姿势减到 ${estimate.can_afford_count} 个以内。\n\n` +
+          `建议把镜头减到 ${estimate.can_afford_count} 个以内。\n\n` +
           `仍要提交吗？（服务端可能会拒绝或只完成一部分）`,
       );
       if (!ok) return;
@@ -921,7 +921,7 @@ function BatchPhotoTab({
           productIdx += 1;
         }
       });
-      fd.append("identity_id", String(identityId));
+      if (identityId !== null) fd.append("identity_id", String(identityId));
       fd.append("shoe_style_id", shoeStyleId);
       fd.append("template_id", String(templateId));
       fd.append("solid_color_hex", solidColorHex);
@@ -950,10 +950,10 @@ function BatchPhotoTab({
       if (selectedMaterialIds.length > 0) {
         fd.append("material_ids", JSON.stringify(selectedMaterialIds));
       }
-      // 礼服类型作为顶层维度注入 garment_attrs（写在最前面，
-      // formatGarmentAttrs 会按 Object.entries 顺序输出，prompt 里第一行即"礼服类型：xx"）
+      // 产品类目作为顶层维度注入 garment_attrs（写在最前面，
+      // formatGarmentAttrs 会按 Object.entries 顺序输出，prompt 里第一行即"产品类目：xx"）
       const mergedAttrs: GarmentAttrs = {
-        礼服类型: dressType,
+        产品类目: dressType,
         ...(garmentAttrs || {}),
       };
       fd.append("garment_attrs", JSON.stringify(mergedAttrs));
@@ -1141,7 +1141,7 @@ function BatchPhotoTab({
                 <span className="text-xs font-semibold bg-[#fbe9bd] text-[#793400] border border-[#f3d27a] px-2.5 py-0.5 rounded-md font-mono">并发批处理渲染</span>
               </h1>
               <p className="text-xs text-[#6c6e63] leading-relaxed max-w-2xl">
-                产品图 → 解析款式 → 选模特 / 场景 / 姿势 → 多机位并联计算，批量导出整套模特穿着大片。
+                产品图 → 解析软品属性 → 选家居场景 / 镜头 → 多机位并联计算，批量导出整套家居软品图片。
               </p>
             </div>
           </div>
@@ -1200,14 +1200,14 @@ function BatchPhotoTab({
             {/* Step 2: 款式解析 */}
             {hasProductImages && (
               <CollapsibleSection
-                title="② 款式解析 + 服装材质"
-                description="可选 · AI 自动识别款式属性，提升出图准确度"
+                title="② 产品解析 + 软品材质"
+                description="可选 · AI 自动识别类目、面料、填充、边缘和绗缝，提升出图准确度"
                 defaultOpen={!!garmentAttrs}
               >
-                {/* 礼服类型 5 选 1（用户主动选，不是 AI 解析） */}
+                {/* 产品类目 5 选 1（用户主动选，不是 AI 解析） */}
                 <div className="mb-3 p-2.5 bg-bg-tertiary border border-border-subtle rounded-md">
                   <div className="text-[11px] text-fg-tertiary mb-1.5">
-                    礼服类型
+                    产品类目
                     <span className="ml-1 text-[10px] text-fg-muted">
                       （影响出图整体调性 / 场合感）
                     </span>
@@ -1246,7 +1246,7 @@ function BatchPhotoTab({
                       ? "解析中..."
                       : garmentAttrs
                         ? "重新解析"
-                        : "解析款式"}
+                        : "解析产品"}
                   </button>
                 </div>
                 {garmentAttrs && (
@@ -1323,11 +1323,11 @@ function BatchPhotoTab({
 
             {/* Step 3: 模特（按分类折叠）*/}
             <CollapsibleSection
-              title="③ 选择模特形象"
+              title="③ 参考图位（兼容旧流程）"
               description={
                 identityId
                   ? `已选择`
-                  : `${identities.length} 个模特，按体型分类`
+                  : `${identities.length} 个参考图，按分类`
               }
               badge={identityId ? "✓" : undefined}
               defaultOpen={!identityId}
@@ -1335,7 +1335,7 @@ function BatchPhotoTab({
               {identities.length === 0 ? (
                 <EmptyHint
                   href="/admin/models"
-                  label="去添加模特形象（需 PNG 透明底）"
+                  label="去添加参考图"
                 />
               ) : (
                 <div className="space-y-2">
@@ -1381,7 +1381,7 @@ function BatchPhotoTab({
                 <div>
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 text-[12px] font-semibold border border-brand-200">主背景 · 纯色</span>
-                    <span className="text-[11px] text-fg-muted">所有姿势走这个色，作为产品图主背景</span>
+                    <span className="text-[11px] text-fg-muted">所有主图镜头使用这个底色，作为产品主背景</span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {SOLID_COLOR_PRESETS.map((c) => (
@@ -1441,7 +1441,7 @@ function BatchPhotoTab({
                 <div className="mt-4">
                   <div className="flex items-center gap-2 mb-2.5">
                     <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 text-[12px] font-semibold border border-brand-200">额外文字场景 · 可选 ≤ 2 条</span>
-                    <span className="text-[11px] text-fg-muted">文字描述场景 + 数量，姿势由模型按场景自由生成</span>
+                    <span className="text-[11px] text-fg-muted">文字描述场景 + 数量，镜头由模型按场景自由生成</span>
                   </div>
 
                   {extraTextScenes.length > 0 && (
@@ -1639,7 +1639,7 @@ function BatchPhotoTab({
 
             {/* Step 5: 鞋款设置（按 identity audience 自动分类） */}
             <CollapsibleSection
-              title="⑤ 鞋款设置"
+              title="⑤ 旧鞋款设置（家居软品会自动忽略）"
               description={(() => {
                 const cur = identities.find((m) => m.id === identityId);
                 const audience: ShoeAudience = audienceFromIdentityCategory(
@@ -1671,7 +1671,7 @@ function BatchPhotoTab({
                         {audienceLabel}款
                       </span>
                       <span>
-                        鞋款由模特类型自动切换（{cur?.name ?? "未选模特"}） · 颜色由模型按服装搭配
+                        家居软品模板不会使用鞋款；此处仅保留给旧任务兼容。
                       </span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1738,7 +1738,7 @@ function BatchPhotoTab({
 
             {/* Step 5: 姿势（按类型折叠） */}
             <CollapsibleSection
-              title="⑥ 选择姿势"
+              title="⑤ 选择镜头"
               description={
                 selectedPoseIds.size > 0
                   ? `已选 ${selectedPoseIds.size}${
@@ -1754,7 +1754,7 @@ function BatchPhotoTab({
               defaultOpen={selectedPoseIds.size === 0}
             >
               {poses.length === 0 ? (
-                <EmptyHint href="/admin/poses" label="去添加姿势" />
+                <EmptyHint href="/admin/poses" label="去添加镜头" />
               ) : (
                 <div className="space-y-2">
                   {/* 首图 / 全身 / 半身 / 特写 同级 tab */}
@@ -1849,7 +1849,7 @@ function BatchPhotoTab({
               defaultOpen={false}
             >
               <div className="flex flex-wrap gap-1.5 mb-3 border-b border-border-subtle pb-2.5">
-                {([["template", "Prompt 模板"], ["photo", "摄影参数"], ["realism", "真实感"], ["expression", "面部表情"]] as const).map(([k, lbl]) => { const on = styleTab === k; return (<button key={k} type="button" onClick={() => setStyleTab(k)} className={"px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all " + (on ? "bg-brand-600 text-white border-brand-600" : "bg-bg-base text-fg-secondary border-border-subtle hover:border-brand-400 hover:text-brand-700")}>{lbl}</button>); })}
+                {([["template", "Prompt 模板"], ["photo", "摄影参数"], ["realism", "真实感"], ["expression", "出图氛围"]] as const).map(([k, lbl]) => { const on = styleTab === k; return (<button key={k} type="button" onClick={() => setStyleTab(k)} className={"px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-all " + (on ? "bg-brand-600 text-white border-brand-600" : "bg-bg-base text-fg-secondary border-border-subtle hover:border-brand-400 hover:text-brand-700")}>{lbl}</button>); })}
               </div>
               <div className="mt-1">
                 {styleTab === "template" && (
@@ -1901,7 +1901,7 @@ function BatchPhotoTab({
                 )}
                 {styleTab === "expression" && (
                 <ChoiceGroup
-                  label="面部表情"
+                  label="出图氛围"
                   items={expressions.map((e) => ({
                     id: e.id,
                     label: e.name,
@@ -1912,7 +1912,7 @@ function BatchPhotoTab({
                   onChange={setExpressionId}
                   emptyHint={{
                     href: "/admin/expressions",
-                    label: "表情库为空",
+                    label: "氛围库为空",
                   }}
                 />
                 )}
@@ -2425,7 +2425,7 @@ function RightPanel({
             size="sm"
             variant="outline"
             onConfirm={onReset}
-            confirmDetail="将清除已上传的产品图、解析结果、选择的模特/场景/姿势/风格组合。当前正在进行的任务不受影响。"
+            confirmDetail="将清除已上传的产品图、解析结果、选择的参考图/场景/镜头/风格组合。当前正在进行的任务不受影响。"
           />
           <div className="text-[10px] text-fg-muted flex-1 self-center">
             F5 刷新会清空所有状态

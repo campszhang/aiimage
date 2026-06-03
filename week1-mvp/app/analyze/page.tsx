@@ -70,7 +70,7 @@ export default function AnalyzePage() {
 
   async function handleAnalyze() {
     if (files.length === 0) {
-      setError("请至少上传一张服装图");
+      setError("请至少上传一张家居软品图");
       return;
     }
     setLoading(true);
@@ -108,9 +108,9 @@ export default function AnalyzePage() {
   return (
     <main className="max-w-4xl mx-auto p-4 md:p-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-fg-primary">服饰特征解析</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">家居软品特征解析</h1>
         <p className="mt-1 text-sm text-fg-tertiary">
-          上传正面 / 背面图，AI 提取结构化属性
+          上传正面 / 背面 / 细节图，AI 提取类目、面料、填充、工艺和场景建议
         </p>
       </header>
 
@@ -170,7 +170,7 @@ export default function AnalyzePage() {
 
         <div className="mb-4">
           <label className="block text-sm font-medium text-fg-secondary mb-2">
-            上传服装图（最多 2 张）
+            上传家居软品图（最多 2 张）
           </label>
           <input
             type="file"

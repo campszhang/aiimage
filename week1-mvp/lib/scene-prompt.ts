@@ -1,8 +1,8 @@
 /**
- * Scene Tools — 服饰场景图（统一工具）· v3 加焦点开关 + 特写 + 材质词库
+ * Scene Tools — 家居软品场景图（统一工具）· v3 加焦点开关 + 特写 + 材质词库
  * v6: 加 hasBackReference + IMAGE 3（背部参考）
  *
- *   产品图（含模特+服装）+ 场景描述 → 把模特放到该场景里重新拍
+ *   产品图（家居软品）+ 场景描述 → 把产品重新摆入该场景拍摄
  *
  * 场景有两种描述方式：
  *   1. 文字场景（free text）—— 模型自由发挥取景 / 光线 / 构图
@@ -75,12 +75,12 @@ ${userHint.trim()}\n`
   const inputImagesIntro = opts.hasBackReference
     ? `You will receive TWO images:
 
-▸ IMAGE 1 — A photograph of a model wearing a specific garment (front).
+▸ IMAGE 1 — A product photograph of a home textile item (front).
    THAT BACKGROUND WILL BE COMPLETELY DISCARDED.
-▸ IMAGE 2 — BACK VIEW reference of the same garment (for back closeup).`
+▸ IMAGE 2 — BACK VIEW reference of the same product (for back closeup).`
     : `You will receive ONE image:
 
-▸ IMAGE 1 — A photograph of a model wearing a specific garment in some
+▸ IMAGE 1 — A product photograph of a home textile item in some
    prior background. THAT BACKGROUND WILL BE COMPLETELY DISCARDED.`;
 
   // 文字模式下没有场景 plate，所以背部参考图占用 IMAGE 2 的位置；
@@ -93,12 +93,12 @@ ${userHint.trim()}\n`
   return `${inputImagesIntro}
 
 ══════════════════════════════════════════════════════════
-🚨 TASK — Re-shoot the same model + same garment at a new scene
+🚨 TASK — Re-shoot the same home textile product at a new scene
 ══════════════════════════════════════════════════════════
 
 This is NOT pixel-edit. This is a brand-new photograph captured ON
 LOCATION at the scene described below, using IMAGE 1 only as
-"this is the model and her dress" reference.
+"this is the product, fabric and construction" reference.
 
 ══════════════════════════════════════════════════════════
 🎬 THE SCENE (describe what to photograph)
@@ -110,10 +110,9 @@ ${sceneClean}
 ✅ KEEP FROM IMAGE 1
 ══════════════════════════════════════════════════════════
 
-- Model's face: identity, features, hair color & style, skin tone
-- Garment: color, fabric, fit, length, neckline, sleeves, patterns,
-  embroidery, beads, lace, hems, ALL visible details
-- Accessories on subject (jewelry, shoes)
+- Product identity: category, silhouette, thickness, scale and proportions
+- Product construction: color, fabric, filling loft, seams, piping, quilting, zipper, tags, embroidery, print, hems, ALL visible details
+- Styling props that already belong to the product set
 
 ══════════════════════════════════════════════════════════
 🎬 RENDER FRESH FOR THE NEW SCENE
@@ -122,9 +121,9 @@ ${sceneClean}
 - Background: 100% the described scene
 - Lighting: 100% from the scene description (match temperature,
   direction, time-of-day)
-- Body proportions must read as a real human at correct scale to
+- Product scale must read as a real object at correct scale to
   anything visible in the scene.
-- Edges of the subject lit organically by the scene's light, never
+- Edges of the product lit organically by the scene's light, never
   a "cut-out / pasted-on" composite feel.
 
 ${framingBlock}
@@ -134,9 +133,9 @@ ${sceneConsistencyBlock}
 ❌ FORBIDDEN
 ══════════════════════════════════════════════════════════
 
-- Modifying garment color, fabric, design, or details
-- Swapping model's identity / face
-- "Pasted-on" composite look (subject lit differently from scene)
+- Modifying product color, fabric, design, construction, or details
+- Adding or implying a human model, mannequin, body parts, try-on logic, shoes, or fashion styling
+- "Pasted-on" composite look (product lit differently from scene)
 - Concept art / painted look / 3D render aesthetic
 - Watermarks, text, logos
 - Returning IMAGE 1 with only minor edits
@@ -145,7 +144,7 @@ ${userHintBlock}
 OUTPUT
 ══════════════════════════════════════════════════════════
 
-Output ONE photograph. Looks like a real fashion editorial shot
+Output ONE photograph. Looks like a real home textile product photograph
 taken on location at the described scene.
 `;
 }
@@ -194,31 +193,28 @@ ${userHint.trim()}\n`
   const inputImagesIntro = opts.hasBackReference
     ? `You will receive THREE images:
 
-▸ IMAGE 1 — A photograph of a model wearing a specific garment (front)
-   (her face / hair / dress are what we keep; the original background
+▸ IMAGE 1 — A product photograph of a home textile item (front)
+   (the product shape, fabric, seams and details are what we keep; the original background
    is to be DISCARDED).
-▸ IMAGE 2 — The new location / scene where to put her.${sceneHint}
-▸ IMAGE 3 — BACK VIEW reference of the same garment (for back closeup).`
+▸ IMAGE 2 — The new location / scene where to style it.${sceneHint}
+▸ IMAGE 3 — BACK VIEW reference of the same product (for back closeup).`
     : `You will receive TWO images:
 
-▸ IMAGE 1 — A photograph of a model wearing a specific garment
-   (her face / hair / dress are what we keep; the original background
+▸ IMAGE 1 — A product photograph of a home textile item
+   (the product shape, fabric, seams and details are what we keep; the original background
    is to be DISCARDED).
-▸ IMAGE 2 — The new location / scene where to put her.${sceneHint}`;
+▸ IMAGE 2 — The new location / scene where to style it.${sceneHint}`;
 
   return `${inputImagesIntro}
 
 ══════════════════════════════════════════════════════════
-🚨 TASK — Place the model from IMAGE 1 into IMAGE 2's location,
-              LIVING in that space (not standing in it)
+🚨 TASK — Place the product from IMAGE 1 into IMAGE 2's location,
+              naturally styled in that space
 ══════════════════════════════════════════════════════════
 
-This is NOT pixel-paste editing, and it's NOT just "put a person in
-front of this background". This is a brand-new photograph where the
-model NATURALLY INTERACTS with the furniture / architecture / props
-visible in IMAGE 2 — sitting on the chair, leaning on the door frame,
-hand resting on the table, holding a cup from the surface, sitting
-on the stairs, etc. The pose must arise from what's actually in
+This is NOT pixel-paste editing, and it's NOT just "reuse a background with a pasted product". This is a brand-new photograph where the
+product NATURALLY SITS ON OR RELATES TO the furniture, bedding, sofa, chair, table, tray or fabric layers
+visible in IMAGE 2. The placement must arise from what is actually in
 IMAGE 2.
 
 ⚠️ IMPORTANT: Use IMAGE 2 only as "atmosphere / lighting / palette /
@@ -231,10 +227,9 @@ or no figure at all, your output must follow the framing block below
 ✅ KEEP FROM IMAGE 1
 ══════════════════════════════════════════════════════════
 
-- Model's face: identity, features, hair color & style, skin tone
-- Garment: color, fabric, fit, length, neckline, sleeves, patterns,
-  embroidery, beads, lace, hems, ALL visible details
-- Accessories on subject (jewelry, shoes)
+- Product identity: category, silhouette, thickness, scale and proportions
+- Product construction: color, fabric, filling loft, seams, piping, quilting, zipper, tags, embroidery, print, hems, ALL visible details
+- Styling props that already belong to the product set
 
 ══════════════════════════════════════════════════════════
 🎬 USE IMAGE 2 AS THE LOCATION
@@ -243,7 +238,7 @@ or no figure at all, your output must follow the framing block below
 - Background: 100% IMAGE 2's setting (architecture, props, materials,
   palette all come from IMAGE 2)
 - Lighting: 100% from IMAGE 2's natural light — match color temperature,
-  direction, time-of-day; re-light skin and garment accordingly
+  direction, time-of-day; re-light the product fabric and edges accordingly
 
 ${framingBlock}
 ${sceneConsistencyBlock}
@@ -251,10 +246,10 @@ ${sceneConsistencyBlock}
 ❌ FORBIDDEN
 ══════════════════════════════════════════════════════════
 
-- Modifying garment color, fabric, design, or details
-- Swapping model's identity / face
-- "Pasted-on" composite look (subject lit differently from scene)
-- Adding people, props, or major decorations not in IMAGE 2
+- Modifying product color, fabric, design, construction, or details
+- Adding or implying a human model, mannequin, body parts, try-on logic, shoes, or fashion styling
+- "Pasted-on" composite look (product lit differently from scene)
+- Adding people, mannequins, body parts, shoes, fashion props, or major decorations not in IMAGE 2
 - Concept art / painted look / 3D render aesthetic
 - Watermarks, text, logos
 ${userHintBlock}
@@ -262,7 +257,7 @@ ${userHintBlock}
 OUTPUT
 ══════════════════════════════════════════════════════════
 
-Output ONE photograph. Looks like the model was actually photographed
-on location at IMAGE 2's venue.
+Output ONE photograph. Looks like the home textile product was actually
+styled and photographed on location at IMAGE 2's venue.
 `;
 }

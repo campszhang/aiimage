@@ -52,7 +52,7 @@ const FEATURE_LABELS: Record<Feature, string> = {
   recolor: "换色",
   batch_photo: "批量摄影",
   identity_gen: "形象生成",
-  scene_tools: "服饰场景图",
+  scene_tools: "家居场景图",
 };
 
 type JobRow = {
@@ -90,7 +90,7 @@ type FeatureTab = "all" | Feature;
 const FEATURE_TAB_OPTIONS: Array<{ value: FeatureTab; label: string }> = [
   { value: "all", label: "全部工具" },
   { value: "batch_photo", label: "批量摄影" },
-  { value: "scene_tools", label: "服饰场景图" },
+  { value: "scene_tools", label: "家居场景图" },
   { value: "recolor", label: "换色" },
   { value: "identity_gen", label: "形象生成" },
 ];
@@ -137,7 +137,7 @@ function formatConfig(job: JobRow): string {
     }
     if (typeof p.image_count === "number") chips.push(`${p.image_count} 图`);
   } else if (job.feature === "batch_photo") {
-    if (p.identity_name) chips.push(`模特: ${p.identity_name as string}`);
+    if (p.identity_name) chips.push(`参考: ${p.identity_name as string}`);
     if (typeof p.solid_pose_count === "number" && p.solid_pose_count > 0) {
       chips.push(`${p.solid_pose_count} 纯色`);
     }
@@ -410,7 +410,7 @@ export default function HistoryPage() {
         <div className="flex items-center gap-2">
           <Input
             size="sm"
-            placeholder="搜索模特名 / 颜色 / id…"
+            placeholder="搜索产品名 / 颜色 / id…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             leftAddon={<Search size={12} strokeWidth={2} />}
