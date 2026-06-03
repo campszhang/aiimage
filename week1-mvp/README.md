@@ -44,3 +44,26 @@ OPENAI_API_KEY=可选，使用 OpenAI 出图时配置
 ```
 
 Docker Compose 会把数据挂载到容器内 `/app/data`，数据库、上传图和生成图都在这里持久化。
+
+## 生产模式检查
+
+Dockerfile 已经按 standalone 模式复制了 `.next/static`，容器内会直接运行：
+
+```bash
+node server.js
+```
+
+如果在本机或裸 VM 上不用 Docker、直接跑 standalone，需要先复制静态资源：
+
+```bash
+npm run build
+mkdir -p .next/standalone/.next
+cp -R .next/static .next/standalone/.next/static
+SESSION_SECRET=your-secret DATA_DIR=$PWD/data PORT=3000 HOSTNAME=0.0.0.0 node .next/standalone/server.js
+```
+
+启动后再跑：
+
+```bash
+npm run test:e2e:login
+```
