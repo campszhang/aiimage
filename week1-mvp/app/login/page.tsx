@@ -2,7 +2,7 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { ArrowRight, LockKeyhole, Sparkles, UserRound } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -38,74 +38,118 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen bg-bg-primary flex items-center justify-center p-4 relative overflow-hidden">
-      {/* 背景光晕装饰 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-24 -left-24 w-[480px] h-[480px] rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%)",
-        }}
-      />
+    <main className="min-h-screen bg-bg-primary flex items-stretch">
+      <section className="hidden lg:flex w-[360px] bg-bg-secondary border-r border-border-subtle flex-col justify-between px-8 py-8">
+        <div>
+          <div className="flex items-center gap-3">
+            <span
+              className="w-10 h-10 rounded-md flex items-center justify-center text-white"
+              style={{ background: "var(--brand-gradient)" }}
+            >
+              <Sparkles size={18} strokeWidth={2.2} />
+            </span>
+            <div>
+              <div className="text-[15px] font-bold text-fg-primary leading-tight">
+                家居软品AI
+              </div>
+              <div className="text-[10px] text-fg-tertiary font-mono leading-tight">
+                HOME TEXTILE AI STUDIO
+              </div>
+            </div>
+          </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-bg-secondary rounded-lg border border-border-default shadow-lg p-7 relative z-10"
-      >
-        <div className="flex items-center gap-3 mb-1.5">
-          <span
-            className="w-10 h-10 rounded-md flex items-center justify-center text-white"
-            style={{
-              background: "var(--brand-gradient)",
-              boxShadow: "0 0 20px var(--brand-glow)",
-            }}
-          >
-            <Sparkles size={18} strokeWidth={2.2} />
-          </span>
-          <h1 className="text-[18px] font-bold text-fg-primary tracking-tight">
-            家居软品AI生图工具
-          </h1>
+          <div className="mt-10 space-y-3">
+            {["软品批量摄影", "家居场景图", "HEX 精准换色", "素材库管理"].map(
+              (item) => (
+                <div
+                  key={item}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-md border border-border-subtle bg-bg-card text-[12.5px] text-fg-secondary"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-brand-400" />
+                  {item}
+                </div>
+              ),
+            )}
+          </div>
         </div>
-        <p className="text-[12px] text-fg-tertiary mb-6 ml-[52px]">
-          团队内部登录
-        </p>
 
-        <div className="space-y-4">
+        <div className="text-[11px] text-fg-muted leading-relaxed">
+          枕头、枕套、眼罩、发圈、凉感被、夏被、羽绒被电商团队内部工具
+        </div>
+      </section>
+
+      <section className="flex-1 flex items-center justify-center px-4 py-8">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-[380px] bg-bg-secondary rounded-lg border border-border-default shadow-lg p-7"
+        >
+          <div className="lg:hidden flex items-center gap-3 mb-7">
+            <span
+              className="w-10 h-10 rounded-md flex items-center justify-center text-white"
+              style={{ background: "var(--brand-gradient)" }}
+            >
+              <Sparkles size={18} strokeWidth={2.2} />
+            </span>
+            <div>
+              <div className="text-[15px] font-bold text-fg-primary leading-tight">
+                家居软品AI
+              </div>
+              <div className="text-[10px] text-fg-tertiary font-mono leading-tight">
+                HOME TEXTILE AI STUDIO
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-7">
+            <h1 className="text-[22px] font-bold text-fg-primary tracking-tight">
+              登录工作台
+            </h1>
+            <p className="mt-1 text-[12px] text-fg-tertiary">
+              使用内部账号进入家居软品 AI 生图工具
+            </p>
+          </div>
+
+          <div className="space-y-4">
           <div>
             <label className="block text-[12px] font-medium text-fg-secondary mb-1.5">
               用户名
             </label>
-            <input
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="input"
-              required
-            />
+            <div className="relative">
+              <UserRound
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted"
+              />
+              <input
+                type="text"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input pl-9"
+                placeholder="admin"
+                required
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-[12px] font-medium text-fg-secondary mb-1.5">
               密码
             </label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input"
-              required
-            />
+            <div className="relative">
+              <LockKeyhole
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-fg-muted"
+              />
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input pl-9"
+                placeholder="请输入密码"
+                required
+              />
+            </div>
           </div>
 
           {error && (
@@ -124,12 +168,14 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="btn btn-primary btn-md w-full"
+            className="btn btn-primary btn-md w-full justify-center gap-2"
           >
             {loading ? "登录中..." : "登录"}
+            {!loading && <ArrowRight size={15} strokeWidth={2.2} />}
           </button>
-        </div>
-      </form>
+          </div>
+        </form>
+      </section>
     </main>
   );
 }
