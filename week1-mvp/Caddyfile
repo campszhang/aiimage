@@ -2,7 +2,7 @@
     email {$ADMIN_EMAIL}
 }
 
-{$DOMAIN} {
+{$DOMAIN}, www.{$DOMAIN} {
     # 静态资源（生成的图、上传素材）长期缓存
     # 文件名都包含时间戳+随机后缀，更新会换文件名，不会缓存冲突
     @assets path /assets/*

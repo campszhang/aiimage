@@ -11,6 +11,9 @@ services:
       INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD}
       DATA_DIR: /app/data
+      CLOUD_STORAGE_UPLOAD_URL: ${CLOUD_STORAGE_UPLOAD_URL:-http://35.212.172.128:8082/upload-image}
+      CLOUD_STORAGE_FILE_FIELD: ${CLOUD_STORAGE_FILE_FIELD:-image}
+      CLOUD_STORAGE_TIMEOUT_MS: ${CLOUD_STORAGE_TIMEOUT_MS:-12000}
     volumes:
       # SQLite 数据库 + 生成图 + 上传素材都持久化在这里
       - ./data:/app/data
