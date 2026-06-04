@@ -18,6 +18,7 @@ import { assertWithinBudget, getUserBudgetStatus } from "@/lib/pricing";
 import { createJob } from "@/lib/jobs-db";
 import { startJobWorker, type HandlerContext } from "@/lib/job-runner";
 import { pickShoeSpec } from "@/lib/shoe-spec";
+import { saveGeneratedOutput } from "@/lib/cloud-storage";
 import {
   audienceFromIdentityCategory,
   resolveShoeStyle,
@@ -890,8 +891,12 @@ ${FRAMING_TIGHT_SINGLE}`;
   const filename = `batch_${ctx.userId}_${Date.now()}_${Math.random()
     .toString(36)
     .slice(2, 8)}.${ext}`;
-  const filePath = path.join(outputsDir, filename);
-  await fs.writeFile(filePath, gen.data);
+  const stored = await saveGeneratedOutput({
+    buffer: gen.data,
+    filename,
+    mimeType: gen.mimeType,
+    kind: "batch-photo",
+  });
 
   // OpenAI 走固定单价（size×quality），不走 token —— 算好覆盖记账金额
   const costOverrideUsd =
@@ -929,8 +934,8 @@ ${FRAMING_TIGHT_SINGLE}`;
   });
 
   return {
-    result_image_path: `outputs/${filename}`,
-    result_image_url: `/assets/outputs/${filename}`,
+    result_image_path: stored.relPath,
+    result_image_url: stored.url,
     input_tokens: gen.usage?.inputTokens ?? undefined,
     output_tokens: gen.usage?.outputTokens ?? undefined,
   };

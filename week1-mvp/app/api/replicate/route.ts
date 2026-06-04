@@ -13,6 +13,7 @@ import { retryWithBackoff } from "@/lib/retry";
 import { buildReplicatePrompt, getMoodPreset, type MoodKey, type ReplicateRefInfo } from "@/lib/replicate-prompt";
 import { type FocusMode } from "@/lib/scene-tools-prompt";
 import { formatMaterialDetails, getMaterialsByIds } from "@/lib/materials";
+import { saveGeneratedOutput } from "@/lib/cloud-storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -312,7 +313,12 @@ async function replicateItemHandler(
 
   const ext = gen.mimeType.includes("png") ? "png" : "jpg";
   const filename = `replicate_${ctx.userId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  await fs.writeFile(path.join(outputsDir, filename), gen.data);
+  const stored = await saveGeneratedOutput({
+    buffer: gen.data,
+    filename,
+    mimeType: gen.mimeType,
+    kind: "replicate",
+  });
 
   const costOverrideUsd =
     gen.provider === "openai"
@@ -342,8 +348,8 @@ async function replicateItemHandler(
   });
 
   return {
-    result_image_path: `outputs/${filename}`,
-    result_image_url: `/assets/outputs/${filename}`,
+    result_image_path: stored.relPath,
+    result_image_url: stored.url,
     input_tokens: gen.usage?.inputTokens ?? undefined,
     output_tokens: gen.usage?.outputTokens ?? undefined,
   };

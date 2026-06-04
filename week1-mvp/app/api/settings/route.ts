@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { getCurrentProviderInfo } from "@/lib/genai-client";
+import { getCloudStorageInfo } from "@/lib/cloud-storage";
 import {
   refreshRateFromSettings,
   refreshConcurrencyFromSettings,
@@ -38,6 +39,7 @@ const ALLOWED_PATCH_KEYS = new Set([
   "openai_api_key",
   "openai_proxy_url",
   "openai_ipm_limit",
+  "cloud_storage_upload_url",
   "usd_to_cny",
   "default_budget_cny",
   "image_rate_limit_per_min",
@@ -72,6 +74,7 @@ export async function GET() {
     return NextResponse.json({
       settings: safe,
       provider: getCurrentProviderInfo(),
+      cloudStorage: getCloudStorageInfo(),
     });
   } catch (e) {
     const status = (e as { status?: number }).status || 500;
@@ -121,6 +124,17 @@ export async function PATCH(req: NextRequest) {
             {
               error:
                 "openai_proxy_url 必须以 http:// 或 https:// 开头，例如 http://127.0.0.1:7892",
+            },
+            { status: 400 },
+          );
+        }
+      }
+      if (k === "cloud_storage_upload_url" && typeof v === "string" && v.length > 0) {
+        if (!/^https?:\/\//.test(v)) {
+          return NextResponse.json(
+            {
+              error:
+                "cloud_storage_upload_url 必须以 http:// 或 https:// 开头，例如 http://35.212.172.128:8082/upload-image",
             },
             { status: 400 },
           );
@@ -177,6 +191,7 @@ export async function PATCH(req: NextRequest) {
       updated: updates.map((u) => u.key),
       settings: safe,
       provider: getCurrentProviderInfo(),
+      cloudStorage: getCloudStorageInfo(),
     });
   } catch (e) {
     const status = (e as { status?: number }).status || 500;

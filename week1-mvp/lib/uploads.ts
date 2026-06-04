@@ -8,6 +8,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { DATA_DIR_PATH } from "./db";
+import { uploadToCloudStorage } from "./cloud-storage";
 
 export interface SavedUpload {
   /** 相对 DATA_DIR 的路径，如 "uploads/identities/abc.png" */
@@ -60,9 +61,20 @@ export async function saveUploadFile(
   await fs.writeFile(absPath, buffer);
 
   const relPath = path.posix.join("uploads", safeKind, filename);
+  const cloud = await uploadToCloudStorage({
+    buffer,
+    filename,
+    mimeType,
+    kind: safeKind,
+  });
+
+  if (!cloud.ok && cloud.error) {
+    console.warn(`[uploads] cloud upload fallback local ${relPath}: ${cloud.error}`);
+  }
+
   return {
-    relPath,
-    url: `/assets/${relPath}`,
+    relPath: cloud.url || relPath,
+    url: cloud.url || `/assets/${relPath}`,
     size: buffer.length,
     mimeType,
   };

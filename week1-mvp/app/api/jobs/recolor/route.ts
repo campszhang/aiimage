@@ -21,6 +21,7 @@ import { assertWithinBudget, getUserBudgetStatus } from "@/lib/pricing";
 import { createJob } from "@/lib/jobs-db";
 import { startJobWorker, type HandlerContext } from "@/lib/job-runner";
 import { getColorSwatchPng } from "@/lib/color-swatch";
+import { saveGeneratedOutput } from "@/lib/cloud-storage";
 
 export const runtime = "nodejs";
 // 创建任务本身很快（只需把文件落盘 + 插 DB），所以 60s 够了
@@ -512,9 +513,13 @@ async function recolorItemHandler(
   const rawFilename = `recolor_${ctx.userId}_${stamp}_raw.${rawExt}`;
   const correctedFilename = `recolor_${ctx.userId}_${stamp}.${rawExt}`;
   const rawFilePath = path.join(outputsDir, rawFilename);
-  const correctedFilePath = path.join(outputsDir, correctedFilename);
   await fs.writeFile(rawFilePath, gen.data);
-  await fs.writeFile(correctedFilePath, gen.data);
+  const stored = await saveGeneratedOutput({
+    buffer: gen.data,
+    filename: correctedFilename,
+    mimeType: gen.mimeType,
+    kind: "recolor",
+  });
 
   // 计费用实际跑出图的那个 model（fallback 时是 Pro Image，不是 job 表里的 Flash）
   const actualModel = usedFallback ? FALLBACK_MODEL : PRIMARY_MODEL;
@@ -554,8 +559,8 @@ async function recolorItemHandler(
   });
 
   return {
-    result_image_path: `outputs/${correctedFilename}`,
-    result_image_url: `/assets/outputs/${correctedFilename}`,
+    result_image_path: stored.relPath,
+    result_image_url: stored.url,
     raw_image_path: `outputs/${rawFilename}`,
     correction_meta: correctionMeta ? JSON.stringify(correctionMeta) : null,
     input_tokens: gen.usage?.inputTokens ?? undefined,

@@ -5,16 +5,14 @@ const { chromium } = require("playwright");
 const baseUrl = process.env.E2E_BASE_URL || "http://localhost:3000";
 const username = process.env.E2E_ADMIN_USERNAME || "admin";
 const password = process.env.E2E_ADMIN_PASSWORD || "admin123456";
-const chromeExecutable =
-  process.env.PLAYWRIGHT_CHROME_EXECUTABLE ||
-  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const chromeExecutable = process.env.PLAYWRIGHT_CHROME_EXECUTABLE;
 
 async function main() {
   const launchOptions = {
     headless: true,
   };
 
-  if (fs.existsSync(chromeExecutable)) {
+  if (chromeExecutable && fs.existsSync(chromeExecutable)) {
     launchOptions.executablePath = chromeExecutable;
   }
 
@@ -33,6 +31,10 @@ async function main() {
     await page.goto(`${baseUrl}/login`, { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
     await page.waitForSelector('input[name="username"]', { timeout: 10000 });
+    await page.waitForFunction(() => {
+      const button = document.querySelector('button[type="submit"]');
+      return button instanceof HTMLButtonElement && !button.disabled;
+    }, { timeout: 15000 });
     await page.fill('input[name="username"]', username);
     await page.fill('input[name="password"]', password);
     await page.waitForFunction(() => {
@@ -54,7 +56,11 @@ async function main() {
     }
 
     await page.waitForURL((url) => url.pathname === "/", { timeout: 15000 });
-    await page.waitForSelector("body", { timeout: 10000 });
+    await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
+    await page.waitForFunction(
+      () => document.body?.innerText.includes("家居软品AI"),
+      { timeout: 10000 },
+    );
 
     const bodyText = await page.locator("body").innerText();
     for (const required of ["家居软品AI", "软品批量摄影", "家居场景图"]) {

@@ -25,6 +25,7 @@ import {
   formatMaterialDetails,
   getMaterialsByIds,
 } from "@/lib/materials";
+import { saveGeneratedOutput } from "@/lib/cloud-storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -678,8 +679,12 @@ async function sceneToolsItemHandler(
   const filename = `scene_${ctx.userId}_${Date.now()}_${Math.random()
     .toString(36)
     .slice(2, 8)}.${ext}`;
-  const filePath = path.join(outputsDir, filename);
-  await fs.writeFile(filePath, gen.data);
+  const stored = await saveGeneratedOutput({
+    buffer: gen.data,
+    filename,
+    mimeType: gen.mimeType,
+    kind: "scene-tools",
+  });
 
   // OpenAI 是固定单价（按 size×quality），不是 token 计费 —— 算好直接覆盖
   const costOverrideUsd =
@@ -722,8 +727,8 @@ async function sceneToolsItemHandler(
   });
 
   return {
-    result_image_path: `outputs/${filename}`,
-    result_image_url: `/assets/outputs/${filename}`,
+    result_image_path: stored.relPath,
+    result_image_url: stored.url,
     input_tokens: gen.usage?.inputTokens ?? undefined,
     output_tokens: gen.usage?.outputTokens ?? undefined,
   };

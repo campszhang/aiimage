@@ -18,6 +18,13 @@ interface ProviderInfo {
   openaiProxyUrl?: string;
 }
 
+interface CloudStorageInfo {
+  uploadUrl: string;
+  enabled: boolean;
+  timeoutMs: number;
+  fileField: string;
+}
+
 // 限流相关 key 的推荐值（仅 Gemini API 直连模式，按 Tier 分档）
 // Tier 3 上限：Nano Banana Pro = 2000 RPM，Nano Banana 2 (Flash) = 5000 RPM
 // 我们 rate limiter 是单一全局费率，按 Pro（默认主模型）算瓶颈
@@ -40,6 +47,7 @@ const RECOMMENDED = {
 export default function SettingsAdminPage() {
   const [settings, setSettings] = useState<SettingItem[]>([]);
   const [provider, setProvider] = useState<ProviderInfo | null>(null);
+  const [cloudStorage, setCloudStorage] = useState<CloudStorageInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -54,6 +62,11 @@ export default function SettingsAdminPage() {
   const [openaiKeyTouched, setOpenaiKeyTouched] = useState(false);
   const [openaiProxyInput, setOpenaiProxyInput] = useState("");
   const [openaiProxyTouched, setOpenaiProxyTouched] = useState(false);
+
+  const [cloudStorageInput, setCloudStorageInput] = useState(
+    "http://35.212.172.128:8082/upload-image",
+  );
+  const [cloudStorageTouched, setCloudStorageTouched] = useState(false);
 
   // 限流/并发表单
   const [rateForm, setRateForm] = useState({
@@ -84,6 +97,7 @@ export default function SettingsAdminPage() {
       const items: SettingItem[] = data.settings || [];
       setSettings(items);
       setProvider(data.provider || null);
+      setCloudStorage(data.cloudStorage || null);
 
       // 用 DB 值初始化表单
       const map = new Map(items.map((s) => [s.key, s.value]));
@@ -98,6 +112,11 @@ export default function SettingsAdminPage() {
       });
       // OpenAI 代理 URL 从 settings 表读（key 本身不回显，因为是 secret）
       setOpenaiProxyInput(map.get("openai_proxy_url") ?? "");
+      setCloudStorageInput(
+        map.get("cloud_storage_upload_url") ||
+          data.cloudStorage?.uploadUrl ||
+          "http://35.212.172.128:8082/upload-image",
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -128,6 +147,7 @@ export default function SettingsAdminPage() {
       const data = await res.json();
       setSettings(data.settings || []);
       setProvider(data.provider || null);
+      setCloudStorage(data.cloudStorage || null);
       showSaved(msg);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -173,6 +193,20 @@ export default function SettingsAdminPage() {
     setOpenaiKeyInput("");
     setOpenaiKeyTouched(false);
     setOpenaiProxyTouched(false);
+  }
+
+  async function handleSaveCloudStorage(e: React.FormEvent) {
+    e.preventDefault();
+    const value = cloudStorageInput.trim();
+    if (!value) {
+      setError("请输入云储存上传接口 URL");
+      return;
+    }
+    await patchSettings(
+      { cloud_storage_upload_url: value },
+      "云储存接口已保存。生成结果和素材上传会优先使用该服务器。",
+    );
+    setCloudStorageTouched(false);
   }
 
   async function handleClearOpenaiKey() {
@@ -415,6 +449,58 @@ export default function SettingsAdminPage() {
                 {saving ? "保存中…" : "保存 OpenAI 配置"}
               </button>
             </div>
+          </form>
+        )}
+      </section>
+
+      {/* ===== 专属云储存 ===== */}
+      <section className="bg-bg-secondary rounded-lg shadow-sm border border-border-subtle p-6 mb-6">
+        <h2 className="text-base font-semibold text-fg-primary mb-1">
+          专属云储存
+        </h2>
+        <p className="text-xs text-fg-tertiary mb-4">
+          生成结果、素材库上传会优先 POST 到这里。接口无响应或没有返回图片 URL 时，系统会自动保留本地文件，页面不会中断。
+        </p>
+
+        {loading ? (
+          <div className="text-sm text-fg-tertiary">加载中…</div>
+        ) : (
+          <form onSubmit={handleSaveCloudStorage} className="space-y-4">
+            {cloudStorage && (
+              <div className="p-3 rounded bg-bg-tertiary border border-border-subtle text-xs text-fg-secondary">
+                当前状态：
+                <span className="ml-1 font-semibold text-fg-primary">
+                  {cloudStorage.enabled ? "已启用" : "未启用"}
+                </span>
+                <span className="ml-3 text-fg-tertiary">
+                  字段名 {cloudStorage.fileField} · 超时 {cloudStorage.timeoutMs}ms
+                </span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">
+                上传接口 URL
+              </label>
+              <input
+                type="text"
+                value={cloudStorageInput}
+                onChange={(e) => {
+                  setCloudStorageInput(e.target.value);
+                  setCloudStorageTouched(true);
+                }}
+                placeholder="http://35.212.172.128:8082/upload-image"
+                className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={saving || !cloudStorageTouched}
+              className="px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 disabled:opacity-50"
+            >
+              {saving ? "保存中…" : "保存云储存接口"}
+            </button>
           </form>
         )}
       </section>

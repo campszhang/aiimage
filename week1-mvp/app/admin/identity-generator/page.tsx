@@ -75,6 +75,7 @@ const BODY_SHAPE_OPTIONS = [
 
 const CATEGORY_OPTIONS = [
   { value: "", label: "未分类" },
+  { value: "home_textile", label: "软品参考" },
   { value: "universal", label: "通用" },
   { value: "plus_size", label: "大码" },
   { value: "maternity", label: "孕妇" },

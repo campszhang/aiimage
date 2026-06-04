@@ -840,7 +840,7 @@ function BatchPhotoTab({
 
   // 兼容参考图按 category 分组（保持稳定排序）
   const identityGroups = useMemo(() => {
-    const CATEGORY_ORDER = ["通用", "大码", "孕妇", "青少年"];
+    const CATEGORY_ORDER = ["软品参考", "通用", "大码", "孕妇", "青少年"];
     const groups = new Map<string, Identity[]>();
     for (const m of identities) {
       const key = m.category_label || "未分类";

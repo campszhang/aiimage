@@ -23,6 +23,7 @@ import { getDb, DATA_DIR_PATH } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { correctImageColor } from "@/lib/color-correct";
 import { updateJobItem } from "@/lib/jobs-db";
+import { saveGeneratedOutput } from "@/lib/cloud-storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -150,10 +151,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     const ext = rawAbsPath.endsWith(".png") ? "png" : "jpg";
     const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const newFilename = `recolor_${user.id}_${stamp}_recorr.${ext}`;
-    const outputsDir = path.join(DATA_DIR_PATH, "outputs");
-    await fs.mkdir(outputsDir, { recursive: true });
-    const newAbsPath = path.join(outputsDir, newFilename);
-    await fs.writeFile(newAbsPath, correction.buffer);
+    const stored = await saveGeneratedOutput({
+      buffer: correction.buffer,
+      filename: newFilename,
+      mimeType: ext === "png" ? "image/png" : "image/jpeg",
+      kind: "recorrect",
+    });
 
     // 删旧 result（不动 raw）—— 失败不要紧
     if (oldResult) {
@@ -184,14 +187,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     };
 
     updateJobItem(itemId, {
-      result_image_path: `outputs/${newFilename}`,
-      result_image_url: `/assets/outputs/${newFilename}`,
+      result_image_path: stored.relPath,
+      result_image_url: stored.url,
       correction_meta: JSON.stringify(newCorrectionMeta),
     });
 
     return NextResponse.json({
-      result_image_url: `/assets/outputs/${newFilename}`,
-      result_image_path: `outputs/${newFilename}`,
+      result_image_url: stored.url,
+      result_image_path: stored.relPath,
       correction_meta: newCorrectionMeta,
     });
   } catch (e) {

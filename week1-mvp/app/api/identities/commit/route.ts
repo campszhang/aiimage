@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs/promises";
 import { DATA_DIR_PATH, getDb } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { uploadToCloudStorage } from "@/lib/cloud-storage";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,7 @@ const PERMANENT_DIR_REL = "uploads/identities";
 
 // 跟 /api/identities POST 保持一致的分类白名单
 const VALID_CATEGORIES = new Set([
+  "home_textile",
   "universal",
   "plus_size",
   "maternity",
@@ -18,6 +20,7 @@ const VALID_CATEGORIES = new Set([
 ]);
 
 const IDENTITY_CATEGORY_LABELS: Record<string, string> = {
+  home_textile: "软品参考",
   universal: "通用",
   plus_size: "大码",
   maternity: "孕妇",
@@ -31,7 +34,7 @@ const IDENTITY_CATEGORY_LABELS: Record<string, string> = {
  *   gen_id: string,         // 来自 /generate 的返回
  *   ext: 'png' | 'jpg',     // 文件扩展名（来自 /generate 的 image_url）
  *   name: string,
- *   category?: string,      // universal / plus_size / maternity / teen
+ *   category?: string,      // home_textile / universal / plus_size / maternity / teen
  *   tags?: string,
  *   sort_order?: number,
  * }
@@ -94,6 +97,21 @@ export async function POST(req: NextRequest) {
     const newAbs = path.join(permanentDir, newFilename);
     await fs.copyFile(tempAbs, newAbs);
     const newRelPath = path.posix.join(PERMANENT_DIR_REL, newFilename);
+    const buffer = await fs.readFile(newAbs);
+    const mimeType =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    const cloud = await uploadToCloudStorage({
+      buffer,
+      filename: newFilename,
+      mimeType,
+      kind: "identities",
+    });
+    if (!cloud.ok && cloud.error) {
+      console.warn(
+        `[identities/commit] cloud upload fallback local ${newRelPath}: ${cloud.error}`,
+      );
+    }
+    const storedPath = cloud.url || newRelPath;
 
     // ─── 3. INSERT models ───
     const db = getDb();
@@ -104,7 +122,7 @@ export async function POST(req: NextRequest) {
       )
       .run(
         name,
-        newRelPath,
+        storedPath,
         body.tags?.trim() || null,
         null,
         category,
@@ -144,7 +162,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ...row,
-        image_url: `/assets/${row.image_path}`,
+        image_url: row.image_path.startsWith("uploads/")
+          ? `/assets/${row.image_path}`
+          : row.image_path,
         category_label: row.category
           ? IDENTITY_CATEGORY_LABELS[row.category] || row.category
           : null,

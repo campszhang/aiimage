@@ -19,6 +19,7 @@ type IdentityRow = {
 
 // 模特分类的中文显示名（与 seed-assets/identities/manifest.json 保持一致）
 const IDENTITY_CATEGORY_LABELS: Record<string, string> = {
+  home_textile: "软品参考",
   universal: "通用",
   plus_size: "大码",
   maternity: "孕妇",
@@ -126,7 +127,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ...row,
-        image_url: `/assets/${row.image_path}`,
+        image_url: row.image_path.startsWith("uploads/")
+          ? `/assets/${row.image_path}`
+          : row.image_path,
         category_label: row.category
           ? IDENTITY_CATEGORY_LABELS[row.category] || row.category
           : null,

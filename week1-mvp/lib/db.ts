@@ -574,9 +574,9 @@ function migrate(db: Database.Database) {
   seedMaterials(db);
   seedModelPrices(db);
   seedSettings(db);
-  // 新实例预设：色卡 + 模特图 + 场景图（来自 seed-assets/）
+  // 新实例预设：色卡 + 家居软品兼容参考图 + 场景图（来自 seed-assets/）
   seedColors(db);
-  seedIdentitiesFromAssets(db);
+  seedHomeTextileReferenceImages(db);
   seedScenesFromAssets(db);
   // 老库的"v2 新场景"补种（manifest 含 27 张新场景，按 name 幂等）
   migrateInsertNewScenes(db);
@@ -588,8 +588,8 @@ function migrate(db: Database.Database) {
   migrateInsertNewMaterials(db);
   // 老库色卡 v2 全量替换（用户 XLS 提供的 50 个新色，flag v2）
   migrateReplaceColorsV2(db);
-  // 老库通用模特 v2 重置（删旧 universal 除"通用 12"外 + 加 11 张新形象）
-  migrateResetUniversalIdentitiesV2(db);
+  // 家居软品不再使用女装人物/婚纱参考图；保留色卡，清理旧 identity/wedding 场景。
+  enforceHomeTextileVisualDefaults(db);
   // 老库新主图场景 v3 补种（28 张 OpenAI Playground 生成的纯场景图）
   migrateInsertNewScenesV3(db);
   // 文字场景预设 v1 种子（把 lib/text-scene-presets.ts 的 28 条种进 text_scenes 表）
@@ -2163,6 +2163,12 @@ function seedSettings(db: Database.Database) {
       notes:
         "OpenAI gpt-image-2 每分钟图片数上限（Tier 1 = 5，Tier 2 = 50，按账号 tier 配）",
     },
+    {
+      key: "cloud_storage_upload_url",
+      value: "http://35.212.172.128:8082/upload-image",
+      notes:
+        "专属云储存上传接口。生成结果和素材上传会优先 POST 到这里，失败时自动保留本地文件。",
+    },
   ];
 
   const stmt = db.prepare(
@@ -2187,15 +2193,6 @@ interface SeedColorEntry {
   color_group_label?: string;
   is_popular?: boolean;
   note?: string;
-  sort_order: number;
-}
-
-interface SeedIdentityEntry {
-  file: string;
-  name: string;
-  category: string;
-  category_label: string;
-  tags?: string;
   sort_order: number;
 }
 
@@ -2252,61 +2249,64 @@ function seedColors(db: Database.Database) {
   console.log(`[db] seedColors: 写入 ${colors.length} 个色卡`);
 }
 
+const HOME_TEXTILE_REFERENCE_IMAGES = [
+  { name: "抱枕参考", file: "identities/home_textile/home_ref_pillow.png", sort_order: 10 },
+  { name: "枕套参考", file: "identities/home_textile/home_ref_pillowcase.png", sort_order: 20 },
+  { name: "眼罩参考", file: "identities/home_textile/home_ref_eyemask.png", sort_order: 30 },
+  { name: "发圈参考", file: "identities/home_textile/home_ref_scrunchie.png", sort_order: 40 },
+  { name: "凉感被参考", file: "identities/home_textile/home_ref_cool_blanket.png", sort_order: 50 },
+  { name: "夏被参考", file: "identities/home_textile/home_ref_summer_quilt.png", sort_order: 60 },
+  { name: "羽绒被参考", file: "identities/home_textile/home_ref_down_comforter.png", sort_order: 70 },
+];
+
 /**
- * 种子模特图（来自 seed-assets/identities/）
- * 仅在 identity 表为空时执行
+ * 家居软品模板不再使用人物 identity。
+ * 这里保留少量产品类参考占位图，只用于兼容旧 batch-photo 字段和后台素材入口。
  */
-function seedIdentitiesFromAssets(db: Database.Database) {
+function seedHomeTextileReferenceImages(db: Database.Database) {
   const exists = db
-    .prepare(`SELECT COUNT(*) AS c FROM models WHERE kind = 'identity'`)
+    .prepare(
+      `SELECT COUNT(*) AS c FROM models WHERE kind = 'identity' AND category = 'home_textile'`,
+    )
     .get() as { c: number };
   if (exists.c > 0) return;
 
-  let entries: SeedIdentityEntry[];
-  let copySeedAsset: typeof import("./seed-assets").copySeedAsset;
+  let copySeedAsset: typeof import("./seed-assets").copySeedAsset | null = null;
   try {
     const seedAssets = require("./seed-assets") as typeof import("./seed-assets");
-    if (!seedAssets.hasSeedAssets()) {
-      console.log("[db] seed-assets/ not found, 跳过 seedIdentitiesFromAssets");
-      return;
+    if (seedAssets.hasSeedAssets()) {
+      copySeedAsset = seedAssets.copySeedAsset;
     }
-    entries = seedAssets.readManifest<SeedIdentityEntry[]>(
-      "identities/manifest.json",
-    );
-    copySeedAsset = seedAssets.copySeedAsset;
   } catch (err) {
-    console.warn("[db] seedIdentitiesFromAssets 读取 manifest 失败:", err);
-    return;
+    console.warn("[db] seedHomeTextileReferenceImages 加载 seed-assets 失败:", err);
   }
 
-  const prepared: Array<SeedIdentityEntry & { image_path: string }> = [];
-  for (const e of entries) {
-    try {
-      const { relPath } = copySeedAsset(e.file, "identities");
-      prepared.push({ ...e, image_path: relPath });
-    } catch (err) {
-      console.warn(`[db] 模特图复制失败 (${e.file}):`, err);
-    }
-  }
-
-  const stmt = db.prepare(
+  const insert = db.prepare(
     `INSERT INTO models (kind, name, image_path, tags, category, sort_order)
-     VALUES ('identity', @name, @image_path, @tags, @category, @sort_order)`,
+     VALUES ('identity', @name, @image_path, @tags, 'home_textile', @sort_order)`,
   );
+
   const tx = db.transaction(() => {
-    for (const p of prepared) {
-      stmt.run({
-        name: p.name,
-        image_path: p.image_path,
-        tags: p.tags || null,
-        category: p.category,
-        sort_order: p.sort_order,
+    for (const item of HOME_TEXTILE_REFERENCE_IMAGES) {
+      let imagePath = `uploads/identities/${path.basename(item.file)}`;
+      if (copySeedAsset) {
+        try {
+          imagePath = copySeedAsset(item.file, "identities").relPath;
+        } catch (err) {
+          console.warn(`[db] 家居软品参考图复制失败 (${item.file}):`, err);
+        }
+      }
+      insert.run({
+        name: item.name,
+        image_path: imagePath,
+        tags: "家居软品,兼容参考",
+        sort_order: item.sort_order,
       });
     }
   });
   tx();
   console.log(
-    `[db] seedIdentitiesFromAssets: 写入 ${prepared.length} 张模特图`,
+    `[db] seedHomeTextileReferenceImages: 写入 ${HOME_TEXTILE_REFERENCE_IMAGES.length} 张家居软品兼容参考图`,
   );
 }
 
@@ -3040,6 +3040,39 @@ function migrateResetUniversalIdentitiesV2(db: Database.Database) {
   console.log(
     `[db] migrateResetUniversalIdentitiesV2: 删 ${deleted} → 插 ${inserted}（已标记 ${FLAG}=done）`,
   );
+}
+
+function enforceHomeTextileVisualDefaults(db: Database.Database) {
+  const legacyIdentityRes = db
+    .prepare(
+      `DELETE FROM models
+       WHERE kind = 'identity'
+         AND (category IS NULL OR category <> 'home_textile')`,
+    )
+    .run();
+  const legacyWeddingSceneRes = db
+    .prepare(
+      `DELETE FROM scenes
+       WHERE category = 'wedding'
+          OR name LIKE '%婚%'
+          OR image_path LIKE '%wedding%'`,
+    )
+    .run();
+
+  const exists = db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM models WHERE kind = 'identity' AND category = 'home_textile'`,
+    )
+    .get() as { c: number };
+  if (exists.c === 0) {
+    seedHomeTextileReferenceImages(db);
+  }
+
+  if (legacyIdentityRes.changes || legacyWeddingSceneRes.changes) {
+    console.log(
+      `[db] enforceHomeTextileVisualDefaults: 清理旧人物参考 ${legacyIdentityRes.changes} 条，旧婚礼场景 ${legacyWeddingSceneRes.changes} 条；色卡未改动`,
+    );
+  }
 }
 
 /**
