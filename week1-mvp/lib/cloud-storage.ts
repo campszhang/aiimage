@@ -2,8 +2,6 @@ import { promises as fs } from "fs";
 import path from "path";
 import { DATA_DIR_PATH, getDb } from "./db";
 
-const DEFAULT_UPLOAD_URL = "http://35.212.172.128:8082/upload-image";
-
 export interface CloudUploadResult {
   ok: boolean;
   url: string | null;
@@ -26,7 +24,6 @@ function getCloudUploadUrl(): string | null {
       .get() as { value: string } | undefined;
     raw = row?.value || raw;
   } catch {}
-  if (!raw) raw = DEFAULT_UPLOAD_URL;
   const value = raw.trim();
   if (!value || value === "off" || value === "disabled") return null;
   return value;

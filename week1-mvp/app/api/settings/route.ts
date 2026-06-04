@@ -134,7 +134,7 @@ export async function PATCH(req: NextRequest) {
           return NextResponse.json(
             {
               error:
-                "cloud_storage_upload_url 必须以 http:// 或 https:// 开头，例如 http://35.212.172.128:8082/upload-image",
+                "cloud_storage_upload_url 必须以 http:// 或 https:// 开头，例如 http://你的服务器IP:8082/upload-image",
             },
             { status: 400 },
           );

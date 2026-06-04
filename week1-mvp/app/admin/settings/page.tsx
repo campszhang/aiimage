@@ -63,9 +63,7 @@ export default function SettingsAdminPage() {
   const [openaiProxyInput, setOpenaiProxyInput] = useState("");
   const [openaiProxyTouched, setOpenaiProxyTouched] = useState(false);
 
-  const [cloudStorageInput, setCloudStorageInput] = useState(
-    "http://35.212.172.128:8082/upload-image",
-  );
+  const [cloudStorageInput, setCloudStorageInput] = useState("");
   const [cloudStorageTouched, setCloudStorageTouched] = useState(false);
 
   // 限流/并发表单
@@ -115,7 +113,7 @@ export default function SettingsAdminPage() {
       setCloudStorageInput(
         map.get("cloud_storage_upload_url") ||
           data.cloudStorage?.uploadUrl ||
-          "http://35.212.172.128:8082/upload-image",
+          "",
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -489,7 +487,7 @@ export default function SettingsAdminPage() {
                   setCloudStorageInput(e.target.value);
                   setCloudStorageTouched(true);
                 }}
-                placeholder="http://35.212.172.128:8082/upload-image"
+                placeholder="http://你的服务器IP:8082/upload-image"
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
               />
             </div>

@@ -2165,9 +2165,9 @@ function seedSettings(db: Database.Database) {
     },
     {
       key: "cloud_storage_upload_url",
-      value: "http://35.212.172.128:8082/upload-image",
+      value: "http://35.212.245.56:8082/upload-image",
       notes:
-        "专属云储存上传接口。生成结果和素材上传会优先 POST 到这里，失败时自动保留本地文件。",
+        "专属云储存上传接口，例如 http://你的服务器IP:8082/upload-image。生成结果和素材上传会优先 POST 到这里，失败时自动保留本地文件。",
     },
   ];
 
