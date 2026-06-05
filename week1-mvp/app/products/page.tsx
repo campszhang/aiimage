@@ -10,12 +10,17 @@ import {
   Plus,
   ExternalLink,
   RefreshCw,
+  Wand2,
+  ImagePlus,
+  Palette,
+  UploadCloud,
 } from "lucide-react";
 import {
   Button,
   Card,
   Chip,
   Dialog,
+  Input,
   SearchInput,
   Tabs,
   Textarea,
@@ -44,6 +49,8 @@ type ProductRow = {
   color_match_confidence: number | null;
   shopify_product_id: string | null;
   shopify_uploaded_at: number | null;
+  failure_reason?: string | null;
+  failure_stage?: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -59,6 +66,31 @@ type ScrapeJobRow = {
   started_at: number | null;
   finished_at: number | null;
   created_at: number;
+};
+
+type ProductDetail = {
+  product: ProductRow & {
+    description: string | null;
+    seo_title: string | null;
+    seo_description: string | null;
+  };
+  source: Record<string, unknown>;
+  attrs: Record<string, unknown>;
+  images: Array<{
+    id: number;
+    image_url: string;
+    local_path: string | null;
+    asset_url: string;
+    sort_order: number;
+    is_primary: number;
+  }>;
+  renders: Array<{
+    id: number;
+    shot_type: string;
+    image_path: string | null;
+    asset_url: string | null;
+    sort_order: number;
+  }>;
 };
 
 const STATUS_LABELS: Record<ProductStatus, string> = {
@@ -100,6 +132,10 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [scrapeDialogOpen, setScrapeDialogOpen] = useState(false);
   const [scrapeJobs, setScrapeJobs] = useState<ScrapeJobRow[]>([]);
+  const [detailId, setDetailId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<ProductDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const fetchList = useCallback(() => {
     const params = new URLSearchParams();
@@ -155,6 +191,32 @@ export default function ProductsPage() {
   const activeQueueCount = scrapeJobs.filter(
     (j) => j.status === "queued" || j.status === "running",
   ).length;
+
+  const openDetail = useCallback((id: number) => {
+    setDetailId(id);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    fetch(`/api/products/${id}`)
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || r.statusText);
+        setDetail(data);
+      })
+      .catch((e) => setDetailError(e instanceof Error ? e.message : String(e)))
+      .finally(() => setDetailLoading(false));
+  }, []);
+
+  const refreshDetail = useCallback(() => {
+    if (detailId == null) return;
+    fetch(`/api/products/${detailId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.product) setDetail(data);
+      })
+      .catch(() => {});
+    fetchList();
+  }, [detailId, fetchList]);
 
   return (
     <div className="min-h-full">
@@ -317,9 +379,9 @@ export default function ProductsPage() {
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        disabled
-                        className="text-[12px] text-fg-muted opacity-50 cursor-not-allowed"
-                        title="详情页 M3 开放"
+                        onClick={() => openDetail(p.id)}
+                        className="text-[12px] text-brand-600 hover:text-brand-700 font-medium"
+                        title="查看并处理产品流程"
                       >
                         详情
                       </button>
@@ -339,7 +401,444 @@ export default function ProductsPage() {
           onQueued={() => fetchList()}
         />
       ) : null}
+
+      {detailId != null ? (
+        <ProductDetailDialog
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+          onClose={() => {
+            setDetailId(null);
+            setDetail(null);
+          }}
+          onChanged={refreshDetail}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function ProductDetailDialog({
+  detail,
+  loading,
+  error,
+  onClose,
+  onChanged,
+}: {
+  detail: ProductDetail | null;
+  loading: boolean;
+  error: string | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    title: "",
+    source_color_name: "",
+    description: "",
+    seo_title: "",
+    seo_description: "",
+    landing_price: "",
+    landing_variants: "",
+    landing_sections: "",
+    style_palette: "",
+    style_background: "",
+    review_note: "",
+  });
+
+  useEffect(() => {
+    if (!detail) return;
+    const landing = readRecord(detail.attrs.landing_page);
+    const colorAudit = readRecord(detail.attrs.color_style_audit);
+    setForm({
+      title: detail.product.title || "",
+      source_color_name: detail.product.source_color_name || "",
+      description: detail.product.description || "",
+      seo_title: detail.product.seo_title || "",
+      seo_description: detail.product.seo_description || "",
+      landing_price:
+        stringify(landing.price_reference) || stringify(detail.source.price),
+      landing_variants:
+        Array.isArray(landing.variants)
+          ? landing.variants.join("\n")
+          : sourceVariants(detail.source).join("\n"),
+      landing_sections:
+        Array.isArray(landing.sections)
+          ? landing.sections.join("\n")
+          : "首屏卖点\n材质触感\n场景展示\n尺寸/变体\n细节工艺\nFAQ",
+      style_palette:
+        stringify(colorAudit.palette) ||
+        "产品主色 + 浅色床品背景 + 低饱和生活方式场景",
+      style_background:
+        stringify(colorAudit.background) ||
+        "卧室/客厅/酒店场景保持干净、柔和、低干扰",
+      review_note: stringify(colorAudit.note) || "",
+    });
+  }, [detail]);
+
+  const product = detail?.product;
+  const landingPageUrl =
+    stringify(detail?.source.raw && readRecord(detail.source.raw).landing_page_url) ||
+    product?.source_url ||
+    "";
+  const price = form.landing_price || stringify(detail?.source.price) || "—";
+  const variants = sourceVariants(detail?.source || {});
+  const rawVariants = sourceRawVariants(detail?.source || {});
+  const canUpload = product?.status === "uploading" || product?.status === "reviewing";
+
+  async function save() {
+    if (!product) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          source_color_name: form.source_color_name,
+          description: form.description,
+          seo_title: form.seo_title,
+          seo_description: form.seo_description,
+          attrs: {
+            landing_page: {
+              price_reference: form.landing_price,
+              variants: lines(form.landing_variants),
+              sections: lines(form.landing_sections),
+              updated_at: new Date().toISOString(),
+            },
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      setMessage("已保存编辑内容");
+      onChanged();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runAction(action: string, note?: string) {
+    if (!product) return;
+    setActionLoading(action);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/products/${product.id}/action`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          note,
+          color_style: {
+            palette: form.style_palette,
+            background: form.style_background,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      setMessage(String(data.message || "操作完成"));
+      onChanged();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : String(e));
+      onChanged();
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  return (
+    <Dialog open onClose={onClose} title="产品详情与流程管理" width="xl">
+      {loading ? (
+        <div className="py-14 text-center text-fg-tertiary">
+          <Loader2 size={22} className="inline animate-spin" />
+        </div>
+      ) : error ? (
+        <div className="p-3 rounded-md bg-red-50 text-red-700 text-[13px]">
+          {error}
+        </div>
+      ) : !detail || !product ? (
+        <div className="py-10 text-center text-fg-tertiary">没有产品详情</div>
+      ) : (
+        <div className="space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Chip tone={STATUS_TONES[product.status]}>
+                  {STATUS_LABELS[product.status]}
+                </Chip>
+                {product.shopify_product_id ? (
+                  <Chip tone="success">Shopify #{product.shopify_product_id}</Chip>
+                ) : null}
+              </div>
+              <a
+                href={landingPageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[12px] text-brand-600 hover:underline break-all"
+              >
+                {landingPageUrl}
+                <ExternalLink size={11} />
+              </a>
+            </div>
+            {product.failure_reason ? (
+              <div className="max-w-xs rounded-md bg-red-50 border border-red-100 px-3 py-2 text-[12px] text-red-700">
+                {product.failure_stage ? `${product.failure_stage}: ` : ""}
+                {product.failure_reason}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] gap-4">
+            <Card className="space-y-3">
+              <div className="font-semibold text-fg-primary">待审核 · 落地页和文案</div>
+              <Input
+                label="产品标题"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input
+                  label="竞品价格"
+                  value={price}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, landing_price: e.target.value }))
+                  }
+                />
+                <Input
+                  label="竞品色名"
+                  value={form.source_color_name}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      source_color_name: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <Textarea
+                label="变体 / 尺寸"
+                rows={3}
+                value={form.landing_variants}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, landing_variants: e.target.value }))
+                }
+              />
+              <Textarea
+                label="产品描述 / 营销页文案"
+                rows={6}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, description: e.target.value }))
+                }
+              />
+              <Textarea
+                label="落地页模块"
+                rows={3}
+                value={form.landing_sections}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, landing_sections: e.target.value }))
+                }
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <Input
+                  label="SEO 标题"
+                  value={form.seo_title}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, seo_title: e.target.value }))
+                  }
+                />
+                <Input
+                  label="SEO 描述"
+                  value={form.seo_description}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      seo_description: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  loading={saving}
+                  onClick={save}
+                >
+                  保存编辑
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Wand2 size={13} />}
+                  loading={actionLoading === "optimize"}
+                  onClick={() => runAction("optimize")}
+                >
+                  AI 优化文案
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<ImagePlus size={13} />}
+                  loading={actionLoading === "start_render"}
+                  onClick={() => runAction("start_render")}
+                >
+                  生成/进入套图审核
+                </Button>
+              </div>
+            </Card>
+
+            <div className="space-y-4">
+              <Card>
+                <div className="font-semibold text-fg-primary mb-3">
+                  Shopify 原始信息
+                </div>
+                <dl className="grid grid-cols-2 gap-2 text-[12px]">
+                  <InfoTerm label="来源" value={product.source_platform || "—"} />
+                  <InfoTerm label="价格" value={price} />
+                  <InfoTerm label="变体数" value={String(rawVariants.length || variants.length || 0)} />
+                  <InfoTerm label="创建" value={formatTime(product.created_at)} />
+                </dl>
+                {rawVariants.length > 0 ? (
+                  <div className="mt-3 max-h-36 overflow-auto rounded-md border border-border-subtle">
+                    <table className="w-full text-[11px]">
+                      <tbody>
+                        {rawVariants.slice(0, 8).map((v, i) => (
+                          <tr key={i} className="border-b border-border-subtle last:border-0">
+                            <td className="px-2 py-1.5">{stringify(v.title) || stringify(v.option2) || "Default"}</td>
+                            <td className="px-2 py-1.5 text-right">{stringify(v.price) || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </Card>
+
+              <Card>
+                <div className="font-semibold text-fg-primary mb-3">
+                  套图审核 · 色彩风格一致性
+                </div>
+                <Textarea
+                  label="色彩风格"
+                  rows={2}
+                  value={form.style_palette}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, style_palette: e.target.value }))
+                  }
+                />
+                <Textarea
+                  label="背景一致性"
+                  rows={2}
+                  value={form.style_background}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, style_background: e.target.value }))
+                  }
+                  className="mt-3"
+                />
+                <Textarea
+                  label="审核备注"
+                  rows={2}
+                  value={form.review_note}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, review_note: e.target.value }))
+                  }
+                  className="mt-3"
+                />
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<Palette size={13} />}
+                    loading={actionLoading === "approve_style"}
+                    onClick={() => runAction("approve_style", form.review_note)}
+                  >
+                    色彩审核通过
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={actionLoading === "approve_renders"}
+                    onClick={() => runAction("approve_renders", form.review_note)}
+                  >
+                    套图审核通过
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          <Card>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <div className="font-semibold text-fg-primary">产品图 / 套图</div>
+                <div className="text-[12px] text-fg-tertiary">
+                  抓取图 {detail.images.length} 张 · 审核套图 {detail.renders.length} 张
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<UploadCloud size={13} />}
+                  disabled={!canUpload}
+                  loading={actionLoading === "upload_shopify"}
+                  onClick={() => runAction("upload_shopify")}
+                >
+                  一键上传 Shopify
+                </Button>
+                <Button
+                  variant="danger-outline"
+                  size="sm"
+                  loading={actionLoading === "mark_failed"}
+                  onClick={() =>
+                    runAction("mark_failed", form.review_note || "人工审核失败")
+                  }
+                >
+                  标记失败
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+              {[...detail.renders, ...detail.images].slice(0, 16).map((img, i) => {
+                const url = "asset_url" in img ? img.asset_url : null;
+                return url ? (
+                  <div
+                    key={`${"shot_type" in img ? "r" : "i"}-${img.id}`}
+                    className="aspect-square rounded-md border border-border-subtle bg-bg-tertiary overflow-hidden"
+                    title={"shot_type" in img ? img.shot_type : i === 0 ? "primary" : "source"}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : null;
+              })}
+            </div>
+          </Card>
+
+          {message ? (
+            <div className="rounded-md bg-bg-tertiary border border-border-subtle px-3 py-2 text-[12px] text-fg-secondary">
+              {message}
+            </div>
+          ) : null}
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+function InfoTerm({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt className="text-fg-tertiary">{label}</dt>
+      <dd className="text-fg-primary text-right truncate">{value}</dd>
+    </>
   );
 }
 
@@ -472,6 +971,57 @@ function ScrapeDialog({
       </div>
     </Dialog>
   );
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value ? (value as Record<string, unknown>) : {};
+}
+
+function stringify(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+}
+
+function sourceVariants(source: Record<string, unknown>): string[] {
+  const sizes = source.sizes;
+  if (Array.isArray(sizes)) return sizes.map(String).filter(Boolean);
+  const raw = readRecord(source.raw);
+  const variants = raw.variants;
+  if (Array.isArray(variants)) {
+    return variants
+      .map((v) => {
+        const r = readRecord(v);
+        return stringify(r.title) || stringify(r.option2) || stringify(r.option1);
+      })
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function sourceRawVariants(source: Record<string, unknown>): Record<string, unknown>[] {
+  const direct = source.variants;
+  if (Array.isArray(direct)) return direct.map(readRecord);
+  const raw = readRecord(source.raw);
+  const variants = raw.variants;
+  return Array.isArray(variants) ? variants.map(readRecord) : [];
+}
+
+function lines(value: string): string[] {
+  return value
+    .split(/\n|,/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts * 1000).toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function ScrapeJobItem({ job }: { job: ScrapeJobRow }) {

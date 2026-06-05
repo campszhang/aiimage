@@ -25,6 +25,14 @@ interface CloudStorageInfo {
   fileField: string;
 }
 
+interface ShopifyInfo {
+  hasCredential: boolean;
+  shopDomain: string;
+  apiVersion: string;
+  accessTokenMask: string;
+  updatedAt: number | null;
+}
+
 // 限流相关 key 的推荐值（仅 Gemini API 直连模式，按 Tier 分档）
 // Tier 3 上限：Nano Banana Pro = 2000 RPM，Nano Banana 2 (Flash) = 5000 RPM
 // 我们 rate limiter 是单一全局费率，按 Pro（默认主模型）算瓶颈
@@ -48,6 +56,7 @@ export default function SettingsAdminPage() {
   const [settings, setSettings] = useState<SettingItem[]>([]);
   const [provider, setProvider] = useState<ProviderInfo | null>(null);
   const [cloudStorage, setCloudStorage] = useState<CloudStorageInfo | null>(null);
+  const [shopify, setShopify] = useState<ShopifyInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,6 +74,13 @@ export default function SettingsAdminPage() {
 
   const [cloudStorageInput, setCloudStorageInput] = useState("");
   const [cloudStorageTouched, setCloudStorageTouched] = useState(false);
+
+  const [shopifyForm, setShopifyForm] = useState({
+    shop_domain: "",
+    access_token: "",
+    api_version: "2024-10",
+  });
+  const [shopifyTouched, setShopifyTouched] = useState(false);
 
   // 限流/并发表单
   const [rateForm, setRateForm] = useState({
@@ -89,13 +105,29 @@ export default function SettingsAdminPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/settings");
+      const [res, shopifyRes] = await Promise.all([
+        fetch("/api/settings"),
+        fetch("/api/shopify/credentials"),
+      ]);
       if (!res.ok) throw new Error((await res.json()).error || res.statusText);
       const data = await res.json();
       const items: SettingItem[] = data.settings || [];
       setSettings(items);
       setProvider(data.provider || null);
       setCloudStorage(data.cloudStorage || null);
+
+      if (shopifyRes.ok) {
+        const shopifyData = await shopifyRes.json();
+        const info: ShopifyInfo | null = shopifyData.shopify || null;
+        setShopify(info);
+        if (info) {
+          setShopifyForm({
+            shop_domain: info.shopDomain || "",
+            access_token: "",
+            api_version: info.apiVersion || "2024-10",
+          });
+        }
+      }
 
       // 用 DB 值初始化表单
       const map = new Map(items.map((s) => [s.key, s.value]));
@@ -205,6 +237,38 @@ export default function SettingsAdminPage() {
       "云储存接口已保存。生成结果和素材上传会优先使用该服务器。",
     );
     setCloudStorageTouched(false);
+  }
+
+  async function handleSaveShopify(e: React.FormEvent) {
+    e.preventDefault();
+    if (!shopifyForm.shop_domain.trim()) {
+      setError("请输入 Shopify 店铺域名");
+      return;
+    }
+    if (!shopifyForm.access_token.trim()) {
+      setError("请输入 Shopify Admin API access token 明文");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    setSavedHint(null);
+    try {
+      const res = await fetch("/api/shopify/credentials", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(shopifyForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      setShopify(data.shopify || null);
+      setShopifyForm((f) => ({ ...f, access_token: "" }));
+      setShopifyTouched(false);
+      showSaved("Shopify 上传凭证已保存。产品管理工作台可以执行一键上传。");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleClearOpenaiKey() {
@@ -498,6 +562,110 @@ export default function SettingsAdminPage() {
               className="px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 disabled:opacity-50"
             >
               {saving ? "保存中…" : "保存云储存接口"}
+            </button>
+          </form>
+        )}
+      </section>
+
+      {/* ===== Shopify 上传 ===== */}
+      <section className="bg-bg-secondary rounded-lg shadow-sm border border-border-subtle p-6 mb-6">
+        <h2 className="text-base font-semibold text-fg-primary mb-1">
+          Shopify 一键上架
+        </h2>
+        <p className="text-xs text-fg-tertiary mb-4">
+          产品管理工作台会使用这里的 Admin API token 创建商品、变体、图片和落地页 metafield。
+          浏览器登录 Shopify 只能用于人工确认，真正上传需要这个 token。
+        </p>
+
+        {loading ? (
+          <div className="text-sm text-fg-tertiary">加载中…</div>
+        ) : (
+          <form onSubmit={handleSaveShopify} className="space-y-4">
+            <div className="p-3 rounded bg-bg-tertiary border border-border-subtle text-xs text-fg-secondary">
+              当前状态：
+              <span className="ml-1 font-semibold text-fg-primary">
+                {shopify?.hasCredential ? "已配置" : "未配置"}
+              </span>
+              {shopify?.hasCredential ? (
+                <>
+                  <span className="ml-3 font-mono text-fg-primary">
+                    {shopify.shopDomain}
+                  </span>
+                  <span className="ml-3 font-mono text-fg-tertiary">
+                    {shopify.accessTokenMask}
+                  </span>
+                </>
+              ) : null}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_140px] gap-3">
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">
+                  店铺域名
+                </label>
+                <input
+                  type="text"
+                  value={shopifyForm.shop_domain}
+                  onChange={(e) => {
+                    setShopifyForm({ ...shopifyForm, shop_domain: e.target.value });
+                    setShopifyTouched(true);
+                  }}
+                  placeholder="peterhanun.myshopify.com"
+                  className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">
+                  API 版本
+                </label>
+                <input
+                  type="text"
+                  value={shopifyForm.api_version}
+                  onChange={(e) => {
+                    setShopifyForm({ ...shopifyForm, api_version: e.target.value });
+                    setShopifyTouched(true);
+                  }}
+                  placeholder="2024-10"
+                  className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-fg-secondary mb-1">
+                Admin API access token
+              </label>
+              <input
+                type="password"
+                value={shopifyForm.access_token}
+                onChange={(e) => {
+                  setShopifyForm({ ...shopifyForm, access_token: e.target.value });
+                  setShopifyTouched(true);
+                }}
+                placeholder={
+                  shopify?.hasCredential
+                    ? "留空 = 不修改；输入新 token = 替换"
+                    : "从 Shopify Admin App 复制 Admin API access token"
+                }
+                className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+                autoComplete="off"
+              />
+              <p className="mt-1 text-xs text-fg-tertiary">
+                需要权限：write_products、read_products、write_files/read_files（如店铺应用支持）。
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={
+                saving ||
+                !shopifyTouched ||
+                !shopifyForm.shop_domain.trim() ||
+                !shopifyForm.access_token.trim()
+              }
+              className="px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 disabled:opacity-50"
+            >
+              {saving ? "保存中…" : "保存 Shopify 上传凭证"}
             </button>
           </form>
         )}

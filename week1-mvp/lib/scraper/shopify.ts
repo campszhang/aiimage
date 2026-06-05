@@ -37,6 +37,17 @@ export type ShopifyScrapeResult = {
   price: string | null;
   /** 货币 */
   currency: string | null;
+  /** 变体摘要（价格 / SKU / 库存 / option） */
+  variants: Array<{
+    id: string | null;
+    title: string | null;
+    price: string | null;
+    sku: string | null;
+    available: boolean | null;
+    option1: string | null;
+    option2: string | null;
+    option3: string | null;
+  }>;
   /** 原始 JSON（截短）— 留给 LLM 优化时做完整参考 */
   raw: Record<string, unknown>;
 };
@@ -133,6 +144,26 @@ export async function scrapeShopify(
   const variantsField = product.variants;
   let price: string | null = null;
   let currency: string | null = null;
+  const variants: ShopifyScrapeResult["variants"] = Array.isArray(variantsField)
+    ? variantsField.slice(0, 100).map((item) => {
+        const v = item as Record<string, unknown>;
+        return {
+          id: readString(v.id) || (v.id == null ? null : String(v.id)),
+          title: readString(v.title),
+          price: readString(v.price),
+          sku: readString(v.sku),
+          available:
+            typeof v.available === "boolean"
+              ? v.available
+              : typeof v.available === "number"
+                ? v.available > 0
+                : null,
+          option1: readString(v.option1),
+          option2: readString(v.option2),
+          option3: readString(v.option3),
+        };
+      })
+    : [];
   if (Array.isArray(variantsField) && variantsField.length > 0) {
     const v = variantsField[0] as Record<string, unknown>;
     price = readString(v.price) || null;
@@ -153,6 +184,7 @@ export async function scrapeShopify(
     sizes,
     price,
     currency,
+    variants,
     raw: {
       // 只保留有用部分，省 DB 空间（完整 product json 平均 30-100KB）
       id: product.id,
@@ -162,6 +194,8 @@ export async function scrapeShopify(
       product_type: productType,
       tags,
       options,
+      landing_page_url: `${new URL(productUrl).origin}/products/${handle}`,
+      variants,
       variants_count: Array.isArray(variantsField) ? variantsField.length : 0,
       images_count: images.length,
       created_at: product.created_at,

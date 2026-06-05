@@ -113,6 +113,7 @@ async function processJob(job: ScrapeJobRow): Promise<void> {
           color: r.color,
           sizes: r.sizes,
           price: r.price,
+          variants: r.variants,
           description: r.description, // 原文，未优化
           raw: r.raw,
         },
