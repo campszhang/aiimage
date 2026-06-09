@@ -41,7 +41,15 @@ export async function middleware(req: NextRequest) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "未登录" }, { status: 401 });
     }
-    const loginUrl = new URL("/login", req.url);
+    const forwardedHost =
+      req.headers.get("x-forwarded-host") || req.headers.get("host");
+    const forwardedProto =
+      req.headers.get("x-forwarded-proto") || req.nextUrl.protocol.replace(":", "");
+    const origin =
+      forwardedHost && forwardedProto
+        ? `${forwardedProto}://${forwardedHost}`
+        : req.url;
+    const loginUrl = new URL("/login", origin);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
   }
