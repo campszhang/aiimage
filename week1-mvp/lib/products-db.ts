@@ -4,18 +4,18 @@
  *
  * 模块定位：竞品采集 → 文案优化 → 套图 → Shopify 上传 端到端 pipeline 数据层
  *
- * 状态机（products.status）:
+ * 状态机（products.status，沿用旧字段名但按 M2a 工作流解释）:
  *
- *   draft → optimizing → optimized → rendering → reviewing → uploading → uploaded
- *                                                                       ↘
- *                                                                       failed (任意阶段)
+ *   draft → optimized → reviewing → uploading → uploaded
+ *     ↑          ↑           ↑          ↘
+ *     └──────────┴───────────┘          failed (任意阶段)
  *
- * - draft       刚抓回来 / 手动创建，未做 LLM 文案优化
- * - optimizing  后台正在跑 LLM 优化
- * - optimized   优化完成，等人工审核
- * - rendering   正在生成套图（recolor + batch-photo）
- * - reviewing   套图完成，等人工审核
- * - uploading   正在上传 Shopify
+ * - draft       草稿：刚抓回来 / 手动编辑 / AI 文案优化后待确认
+ * - optimizing  保留兼容：后台正在跑 LLM 优化
+ * - optimized   待审核：产品信息、价格、变体、落地页、营销模块审核
+ * - rendering   保留兼容：正在生成套图
+ * - reviewing   套图审核：主图、场景图、细节图、色彩风格一致性审核
+ * - uploading   准备上架：最终确认后允许一键上传 Shopify
  * - uploaded    已上架
  * - failed      任意阶段失败（看 failure_stage 字段定位）
  */
@@ -216,6 +216,56 @@ export function listProducts(args: {
     .all(...params, limit, offset) as ProductRow[];
 
   return { rows, total };
+}
+
+export function countProductsByStatus(args: {
+  userId?: number;
+  archived?: boolean;
+  search?: string;
+}): Record<ProductStatus | "all", number> {
+  const db = getDb();
+  const conds: string[] = [];
+  const params: Array<string | number | null> = [];
+  if (typeof args.userId === "number") {
+    conds.push("user_id = ?");
+    params.push(args.userId);
+  }
+  if (!args.archived) {
+    conds.push("archived_at IS NULL");
+  }
+  if (args.search) {
+    conds.push("(title LIKE ? OR source_url LIKE ?)");
+    const like = `%${args.search}%`;
+    params.push(like, like);
+  }
+  const where = conds.length > 0 ? "WHERE " + conds.join(" AND ") : "";
+  const rows = db
+    .prepare(
+      `SELECT status, COUNT(*) AS c
+         FROM products
+         ${where}
+       GROUP BY status`,
+    )
+    .all(...params) as Array<{ status: ProductStatus; c: number }>;
+
+  const counts: Record<ProductStatus | "all", number> = {
+    all: 0,
+    draft: 0,
+    optimizing: 0,
+    optimized: 0,
+    rendering: 0,
+    reviewing: 0,
+    uploading: 0,
+    uploaded: 0,
+    failed: 0,
+  };
+  for (const row of rows) {
+    if (row.status in counts) {
+      counts[row.status] = row.c;
+      counts.all += row.c;
+    }
+  }
+  return counts;
 }
 
 export type UpdateProductPatch = Partial<{

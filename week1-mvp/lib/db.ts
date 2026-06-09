@@ -395,12 +395,12 @@ function migrate(db: Database.Database) {
       id                INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id           INTEGER NOT NULL REFERENCES users(id),
       -- 状态机：
-      --   draft       = 刚抓回来，未做文案优化
-      --   optimizing  = 后台正在跑 LLM 优化
-      --   optimized   = 优化完成，等人工审核
-      --   rendering   = 正在生成套图
-      --   reviewing   = 套图完成，等人工审核
-      --   uploading   = 正在上传 Shopify
+      --   draft       = 草稿：刚抓回来 / 文案编辑 / AI 优化后待确认
+      --   optimizing  = 保留兼容：后台正在跑 LLM 优化
+      --   optimized   = 待审核：产品信息、价格、变体、落地页、营销模块审核
+      --   rendering   = 保留兼容：正在生成套图
+      --   reviewing   = 套图审核：主图、场景图、细节图、色彩风格一致性审核
+      --   uploading   = 准备上架：最终确认后允许一键上传 Shopify
       --   uploaded    = 已上架
       --   failed      = 任意阶段失败
       status            TEXT NOT NULL DEFAULT 'draft',

@@ -17,7 +17,10 @@ type Params = { params: Promise<{ id: string }> };
 
 type ProductAction =
   | "optimize"
+  | "submit_review"
   | "start_render"
+  | "return_draft"
+  | "return_review"
   | "approve_style"
   | "approve_renders"
   | "upload_shopify"
@@ -42,6 +45,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       action?: ProductAction;
       note?: string;
       color_style?: Record<string, unknown>;
+      title?: string;
+      source_color_name?: string;
+      description?: string;
+      seo_title?: string;
+      seo_description?: string;
+      landing_page?: Record<string, unknown>;
     };
     const action = body.action;
 
@@ -51,14 +60,66 @@ export async function POST(req: NextRequest, { params }: Params) {
       const optimized = buildHomeTextileCopy(product, source, attrs);
       updateProduct(product.id, {
         ...optimized,
-        status: "optimized",
         failure_reason: null,
         failure_stage: null,
       });
-      return ok(product.id, { message: "文案已优化，进入待审核" });
+      return ok(product.id, { message: "文案已优化，请确认后提交待审核" });
+    }
+
+    if (action === "submit_review") {
+      const attrs = parseProductAttrs(product);
+      const title = cleanText(body.title) || product.title?.trim() || "";
+      const description =
+        cleanText(body.description) || product.description?.trim() || "";
+      const seoTitle = cleanText(body.seo_title) || product.seo_title || null;
+      const seoDescription =
+        cleanText(body.seo_description) || product.seo_description || null;
+      if (!title) {
+        return NextResponse.json(
+          { error: "请先填写产品标题，再提交待审核" },
+          { status: 400 },
+        );
+      }
+      updateProduct(product.id, {
+        status: "optimized",
+        title,
+        description: description || null,
+        seo_title: seoTitle,
+        seo_description: seoDescription,
+        source_color_name:
+          cleanText(body.source_color_name) || product.source_color_name,
+        attrs: {
+          ...attrs,
+          landing_page:
+            typeof body.landing_page === "object" && body.landing_page
+              ? {
+                  ...(typeof attrs.landing_page === "object" &&
+                  attrs.landing_page
+                    ? (attrs.landing_page as Record<string, unknown>)
+                    : {}),
+                  ...body.landing_page,
+                  updated_at: new Date().toISOString(),
+                }
+              : attrs.landing_page,
+          product_review: {
+            status: "pending",
+            submitted_at: new Date().toISOString(),
+            submitted_by: user.username,
+          },
+        },
+        failure_reason: null,
+        failure_stage: null,
+      });
+      return ok(product.id, { message: "已提交待审核" });
     }
 
     if (action === "start_render") {
+      if (product.status !== "optimized") {
+        return NextResponse.json(
+          { error: "只有待审核通过后，才能进入套图审核" },
+          { status: 400 },
+        );
+      }
       const images = listProductImages(product.id);
       if (images.length === 0) {
         updateProduct(product.id, {
@@ -98,6 +159,12 @@ export async function POST(req: NextRequest, { params }: Params) {
         status: "reviewing",
         attrs: {
           ...parseProductAttrs(product),
+          product_review: {
+            status: "approved",
+            note: body.note || "产品信息审核通过，进入套图审核",
+            approved_at: new Date().toISOString(),
+            approved_by: user.username,
+          },
           render_plan: {
             status: "ready_for_review",
             source: "product-backoffice",
@@ -112,7 +179,57 @@ export async function POST(req: NextRequest, { params }: Params) {
       return ok(product.id, { message: "已进入套图审核" });
     }
 
+    if (action === "return_draft") {
+      if (product.status !== "optimized" && product.status !== "failed") {
+        return NextResponse.json(
+          { error: "只有待审核或失败状态可以退回草稿" },
+          { status: 400 },
+        );
+      }
+      updateProduct(product.id, {
+        status: "draft",
+        attrs: {
+          ...parseProductAttrs(product),
+          product_review: {
+            status: "returned",
+            note: body.note || "退回草稿继续编辑",
+            returned_at: new Date().toISOString(),
+            returned_by: user.username,
+          },
+        },
+      });
+      return ok(product.id, { message: "已退回草稿" });
+    }
+
+    if (action === "return_review") {
+      if (product.status !== "reviewing" && product.status !== "failed") {
+        return NextResponse.json(
+          { error: "只有套图审核或失败状态可以退回待审核" },
+          { status: 400 },
+        );
+      }
+      updateProduct(product.id, {
+        status: "optimized",
+        attrs: {
+          ...parseProductAttrs(product),
+          render_review: {
+            status: "returned",
+            note: body.note || "套图退回待审核",
+            returned_at: new Date().toISOString(),
+            returned_by: user.username,
+          },
+        },
+      });
+      return ok(product.id, { message: "已退回待审核" });
+    }
+
     if (action === "approve_style") {
+      if (product.status !== "reviewing") {
+        return NextResponse.json(
+          { error: "只有套图审核阶段可以通过色彩风格审核" },
+          { status: 400 },
+        );
+      }
       const attrs = parseProductAttrs(product);
       updateProduct(product.id, {
         attrs: {
@@ -136,6 +253,23 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     if (action === "approve_renders") {
       const attrs = parseProductAttrs(product);
+      if (product.status !== "reviewing") {
+        return NextResponse.json(
+          { error: "只有套图审核阶段可以通过套图审核" },
+          { status: 400 },
+        );
+      }
+      const colorAudit =
+        typeof attrs.color_style_audit === "object" &&
+        attrs.color_style_audit !== null
+          ? (attrs.color_style_audit as Record<string, unknown>)
+          : null;
+      if (colorAudit?.status !== "approved") {
+        return NextResponse.json(
+          { error: "请先通过色彩风格审核，再通过套图审核" },
+          { status: 400 },
+        );
+      }
       updateProduct(product.id, {
         status: "uploading",
         attrs: {
@@ -148,10 +282,18 @@ export async function POST(req: NextRequest, { params }: Params) {
           },
         },
       });
-      return ok(product.id, { message: "套图已审核，进入上传阶段" });
+      return ok(product.id, { message: "套图已审核，进入准备上架" });
     }
 
     if (action === "upload_shopify") {
+      const canRetryUpload =
+        product.status === "failed" && product.failure_stage === "upload";
+      if (product.status !== "uploading" && !canRetryUpload) {
+        return NextResponse.json(
+          { error: "只有准备上架阶段可以一键上传 Shopify" },
+          { status: 400 },
+        );
+      }
       const uploadResult = await uploadProductToShopify(user.id, product.id);
       if (!uploadResult.ok) {
         updateProduct(product.id, {
@@ -195,6 +337,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       { status },
     );
   }
+}
+
+function cleanText(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 function ok(productId: number, extra: Record<string, unknown>) {

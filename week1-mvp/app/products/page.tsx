@@ -55,6 +55,8 @@ type ProductRow = {
   updated_at: number;
 };
 
+type ProductCounts = Record<ProductStatus | "all", number>;
+
 type ScrapeJobRow = {
   id: number;
   user_id: number;
@@ -99,7 +101,7 @@ const STATUS_LABELS: Record<ProductStatus, string> = {
   optimized: "待审核",
   rendering: "出图中",
   reviewing: "套图审核",
-  uploading: "上传中",
+  uploading: "准备上架",
   uploaded: "已上架",
   failed: "失败",
 };
@@ -120,6 +122,7 @@ const STATUS_TABS: Array<{ key: ProductStatus | "all"; label: string }> = [
   { key: "draft", label: "草稿" },
   { key: "optimized", label: "待审核" },
   { key: "reviewing", label: "套图审核" },
+  { key: "uploading", label: "准备上架" },
   { key: "uploaded", label: "已上架" },
   { key: "failed", label: "失败" },
 ];
@@ -127,6 +130,7 @@ const STATUS_TABS: Array<{ key: ProductStatus | "all"; label: string }> = [
 export default function ProductsPage() {
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<ProductCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<ProductStatus | "all">("all");
   const [search, setSearch] = useState("");
@@ -147,6 +151,7 @@ export default function ProductsPage() {
         if (Array.isArray(data?.rows)) {
           setRows(data.rows);
           setTotal(data.total ?? 0);
+          setCounts(data.counts ?? null);
         }
       })
       .catch(() => {
@@ -239,7 +244,7 @@ export default function ProductsPage() {
                 ) : null}
               </div>
               <p className="text-[13px] text-fg-tertiary">
-                抓取竞品 → AI 优化文案 → 套图生成 → 一键上传 Shopify。
+                抓取竞品 → 草稿编辑 → 待审核 → 套图审核 → 准备上架 → Shopify。
                 当前 {total} 个产品 · M2a 阶段仅支持 Shopify 同行独立站
               </p>
             </div>
@@ -255,7 +260,13 @@ export default function ProductsPage() {
 
         <div className="flex items-center justify-between gap-3 mb-3">
           <Tabs
-            items={STATUS_TABS.map((t) => ({ key: t.key, label: t.label })) as TabItem[]}
+            items={
+              STATUS_TABS.map((t) => ({
+                key: t.key,
+                label: t.label,
+                badge: counts ? counts[t.key] || 0 : undefined,
+              })) as TabItem[]
+            }
             value={tab}
             onChange={(v) => setTab(v as ProductStatus | "all")}
             variant="pills"
@@ -352,7 +363,6 @@ export default function ProductsPage() {
                       <Chip
                         tone={STATUS_TONES[p.status]}
                         icon={
-                          p.status === "uploading" ||
                           p.status === "optimizing" ||
                           p.status === "rendering" ? (
                             <Loader2 size={10} className="animate-spin" />
@@ -486,7 +496,11 @@ function ProductDetailDialog({
   const price = form.landing_price || stringify(detail?.source.price) || "—";
   const variants = sourceVariants(detail?.source || {});
   const rawVariants = sourceRawVariants(detail?.source || {});
-  const canUpload = product?.status === "uploading" || product?.status === "reviewing";
+  const isDraft = product?.status === "draft";
+  const isPendingReview = product?.status === "optimized";
+  const isImageReview = product?.status === "reviewing";
+  const isReadyToPublish = product?.status === "uploading";
+  const canUpload = isReadyToPublish;
 
   async function save() {
     if (!product) return;
@@ -534,6 +548,9 @@ function ProductDetailDialog({
         body: JSON.stringify({
           action,
           note,
+          ...((action === "submit_review" || action === "start_render")
+            ? buildReviewPayload(form)
+            : {}),
           color_style: {
             palette: form.style_palette,
             background: form.style_background,
@@ -551,6 +568,21 @@ function ProductDetailDialog({
       setActionLoading(null);
     }
   }
+
+  const preflight = product
+    ? buildPublishPreflight({
+        title: form.title,
+        description: form.description,
+        seoTitle: form.seo_title,
+        seoDescription: form.seo_description,
+        variantCount: rawVariants.length || variants.length,
+        imageCount: detail.images.length,
+        renderCount: detail.renders.length,
+        colorApproved:
+          readRecord(detail.attrs.color_style_audit).status === "approved",
+      })
+    : [];
+  const preflightOk = preflight.every((item) => item.ok);
 
   return (
     <Dialog open onClose={onClose} title="产品详情与流程管理" width="xl">
@@ -596,7 +628,9 @@ function ProductDetailDialog({
 
           <div className="grid grid-cols-1 md:grid-cols-[1.1fr_0.9fr] gap-4">
             <Card className="space-y-3">
-              <div className="font-semibold text-fg-primary">待审核 · 落地页和文案</div>
+              <div className="font-semibold text-fg-primary">
+                草稿 / 待审核 · 落地页和文案
+              </div>
               <Input
                 label="产品标题"
                 value={form.title}
@@ -673,24 +707,50 @@ function ProductDetailDialog({
                 >
                   保存编辑
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<Wand2 size={13} />}
-                  loading={actionLoading === "optimize"}
-                  onClick={() => runAction("optimize")}
-                >
-                  AI 优化文案
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  leftIcon={<ImagePlus size={13} />}
-                  loading={actionLoading === "start_render"}
-                  onClick={() => runAction("start_render")}
-                >
-                  生成/进入套图审核
-                </Button>
+                {isDraft ? (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={<Wand2 size={13} />}
+                      loading={actionLoading === "optimize"}
+                      onClick={() => runAction("optimize")}
+                    >
+                      AI 优化文案
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={actionLoading === "submit_review"}
+                      onClick={() => runAction("submit_review")}
+                    >
+                      提交待审核
+                    </Button>
+                  </>
+                ) : null}
+                {isPendingReview ? (
+                  <>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={<ImagePlus size={13} />}
+                      loading={actionLoading === "start_render"}
+                      onClick={() => runAction("start_render")}
+                    >
+                      产品审核通过
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={actionLoading === "return_draft"}
+                      onClick={() =>
+                        runAction("return_draft", form.review_note || "产品信息需继续调整")
+                      }
+                    >
+                      退回草稿
+                    </Button>
+                  </>
+                ) : null}
               </div>
             </Card>
 
@@ -756,6 +816,7 @@ function ProductDetailDialog({
                     variant="outline"
                     size="sm"
                     leftIcon={<Palette size={13} />}
+                    disabled={!isImageReview}
                     loading={actionLoading === "approve_style"}
                     onClick={() => runAction("approve_style", form.review_note)}
                   >
@@ -764,11 +825,50 @@ function ProductDetailDialog({
                   <Button
                     variant="primary"
                     size="sm"
+                    disabled={!isImageReview}
                     loading={actionLoading === "approve_renders"}
                     onClick={() => runAction("approve_renders", form.review_note)}
                   >
                     套图审核通过
                   </Button>
+                  {isImageReview ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={actionLoading === "return_review"}
+                      onClick={() =>
+                        runAction("return_review", form.review_note || "套图需重新检查")
+                      }
+                    >
+                      退回待审核
+                    </Button>
+                  ) : null}
+                </div>
+              </Card>
+
+              <Card>
+                <div className="font-semibold text-fg-primary mb-3">
+                  准备上架 · 最终确认
+                </div>
+                <div className="space-y-2">
+                  {preflight.map((item) => (
+                    <div
+                      key={item.label}
+                      className={`flex items-start gap-2 text-[12px] ${
+                        item.ok ? "text-fg-secondary" : "text-amber-700"
+                      }`}
+                    >
+                      {item.ok ? (
+                        <CheckCircle2 size={13} className="mt-0.5 text-green-600" />
+                      ) : (
+                        <AlertTriangle size={13} className="mt-0.5 text-amber-600" />
+                      )}
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-[11px] text-fg-tertiary">
+                  只有进入准备上架阶段后，才会显示 Shopify 上传按钮。
                 </div>
               </Card>
             </div>
@@ -783,16 +883,43 @@ function ProductDetailDialog({
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<UploadCloud size={13} />}
-                  disabled={!canUpload}
-                  loading={actionLoading === "upload_shopify"}
-                  onClick={() => runAction("upload_shopify")}
-                >
-                  一键上传 Shopify
-                </Button>
+                {isReadyToPublish ? (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    leftIcon={<UploadCloud size={13} />}
+                    disabled={!canUpload || !preflightOk}
+                    loading={actionLoading === "upload_shopify"}
+                    onClick={() => runAction("upload_shopify")}
+                  >
+                    一键上传 Shopify
+                  </Button>
+                ) : null}
+                {product.status === "failed" ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      loading={actionLoading === "return_draft"}
+                      onClick={() =>
+                        runAction("return_draft", form.review_note || "失败后退回草稿")
+                      }
+                    >
+                      退回编辑
+                    </Button>
+                    {product.failure_stage === "upload" ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        loading={actionLoading === "upload_shopify"}
+                        onClick={() => runAction("upload_shopify")}
+                        disabled={!preflightOk}
+                      >
+                        重试上传
+                      </Button>
+                    ) : null}
+                  </>
+                ) : null}
                 <Button
                   variant="danger-outline"
                   size="sm"
@@ -840,6 +967,51 @@ function InfoTerm({ label, value }: { label: string; value: string }) {
       <dd className="text-fg-primary text-right truncate">{value}</dd>
     </>
   );
+}
+
+function buildReviewPayload(form: {
+  title: string;
+  source_color_name: string;
+  description: string;
+  seo_title: string;
+  seo_description: string;
+  landing_price: string;
+  landing_variants: string;
+  landing_sections: string;
+}) {
+  return {
+    title: form.title,
+    source_color_name: form.source_color_name,
+    description: form.description,
+    seo_title: form.seo_title,
+    seo_description: form.seo_description,
+    landing_page: {
+      price_reference: form.landing_price,
+      variants: lines(form.landing_variants),
+      sections: lines(form.landing_sections),
+    },
+  };
+}
+
+function buildPublishPreflight(args: {
+  title: string;
+  description: string;
+  seoTitle: string;
+  seoDescription: string;
+  variantCount: number;
+  imageCount: number;
+  renderCount: number;
+  colorApproved: boolean;
+}) {
+  return [
+    { label: "产品标题已确认", ok: args.title.trim().length > 0 },
+    { label: "产品描述 / 营销页文案已填写", ok: args.description.trim().length > 0 },
+    { label: "SEO 标题和描述已填写", ok: args.seoTitle.trim().length > 0 && args.seoDescription.trim().length > 0 },
+    { label: `变体已识别 ${args.variantCount} 个`, ok: args.variantCount > 0 },
+    { label: `抓取产品图 ${args.imageCount} 张`, ok: args.imageCount > 0 },
+    { label: `审核套图 ${args.renderCount} 张`, ok: args.renderCount > 0 },
+    { label: "色彩风格审核已通过", ok: args.colorApproved },
+  ];
 }
 
 function ScrapeDialog({

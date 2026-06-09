@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth";
 import {
+  countProductsByStatus,
   listProducts,
   type ProductStatus,
 } from "@/lib/products-db";
@@ -17,7 +18,7 @@ export const runtime = "nodejs";
  *   ?limit=50&offset=0
  *   ?all_users=1                 (仅 admin：列出所有用户的；非 admin 忽略)
  *
- * 返回：{ rows: ProductRow[], total: number }
+ * 返回：{ rows: ProductRow[], total: number, counts: Record<status, number> }
  */
 export async function GET(req: NextRequest) {
   try {
@@ -51,8 +52,13 @@ export async function GET(req: NextRequest) {
       limit: Math.min(200, Math.max(1, Number(sp.get("limit")) || 50)),
       offset: Math.max(0, Number(sp.get("offset")) || 0),
     });
+    const counts = countProductsByStatus({
+      userId: allUsers ? undefined : user.id,
+      archived: sp.get("archived") === "1",
+      search: sp.get("search") || undefined,
+    });
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, counts });
   } catch (e) {
     const status = (e as { status?: number }).status || 500;
     return NextResponse.json(
