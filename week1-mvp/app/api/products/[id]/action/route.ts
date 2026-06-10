@@ -443,15 +443,18 @@ async function uploadProductToShopify(userId: number, productId: number) {
   const tokenResult = await resolveShopifyAccessToken(shop, credential.access_token);
   if (!tokenResult.ok) return tokenResult;
 
-  const res = await fetch(`https://${shop}/admin/api/${apiVersion}/products.json`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Shopify-Access-Token": tokenResult.accessToken,
+  const res = await shopifyFetchWithRetry(
+    `https://${shop}/admin/api/${apiVersion}/products.json`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Shopify-Access-Token": tokenResult.accessToken,
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
     },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(30_000),
-  });
+  );
   const data = (await res.json().catch(() => ({}))) as {
     product?: { id?: number | string; handle?: string };
     errors?: unknown;
@@ -483,19 +486,22 @@ async function resolveShopifyAccessToken(
   const clientCredential = parseClientCredential(storedCredential);
   if (!clientCredential) return { ok: true, accessToken: storedCredential };
 
-  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
-    method: "POST",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
+  const res = await shopifyFetchWithRetry(
+    `https://${shop}/admin/oauth/access_token`,
+    {
+      method: "POST",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientCredential.clientId,
+        client_secret: clientCredential.clientSecret,
+      }),
+      signal: AbortSignal.timeout(20_000),
     },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      client_id: clientCredential.clientId,
-      client_secret: clientCredential.clientSecret,
-    }),
-    signal: AbortSignal.timeout(20_000),
-  });
+  );
   const data = (await res.json().catch(() => ({}))) as {
     access_token?: unknown;
     error?: unknown;
@@ -512,6 +518,26 @@ async function resolveShopifyAccessToken(
     };
   }
   return { ok: true, accessToken: data.access_token };
+}
+
+async function shopifyFetchWithRetry(
+  url: string,
+  init: RequestInit,
+  attempts = 3,
+): Promise<Response> {
+  let lastError: unknown = null;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status !== 429 && res.status < 500) return res;
+      if (i === attempts - 1) return res;
+    } catch (e) {
+      lastError = e;
+      if (i === attempts - 1) break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 600 * (i + 1)));
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 function parseClientCredential(
