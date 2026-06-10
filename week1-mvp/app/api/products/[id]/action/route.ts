@@ -13,6 +13,9 @@ import {
 
 export const runtime = "nodejs";
 
+const DEFAULT_SHOPIFY_API_VERSION = "2026-04";
+const CLIENT_CREDENTIAL_PREFIX = "client_credentials:";
+
 type Params = { params: Promise<{ id: string }> };
 
 type ProductAction =
@@ -402,7 +405,8 @@ async function uploadProductToShopify(userId: number, productId: number) {
   if (!credential) {
     return {
       ok: false as const,
-      error: "尚未配置 Shopify 店铺域名和 Admin API access token",
+      error:
+        "尚未配置 Shopify 店铺域名和上传凭证。请在设置里填 Admin API token，或填 Client ID + shpss_ Client Secret",
     };
   }
 
@@ -435,12 +439,15 @@ async function uploadProductToShopify(userId: number, productId: number) {
   };
 
   const shop = credential.shop_domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  const apiVersion = credential.api_version || "2024-10";
+  const apiVersion = credential.api_version || DEFAULT_SHOPIFY_API_VERSION;
+  const tokenResult = await resolveShopifyAccessToken(shop, credential.access_token);
+  if (!tokenResult.ok) return tokenResult;
+
   const res = await fetch(`https://${shop}/admin/api/${apiVersion}/products.json`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Shopify-Access-Token": credential.access_token,
+      "X-Shopify-Access-Token": tokenResult.accessToken,
     },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(30_000),
@@ -450,9 +457,14 @@ async function uploadProductToShopify(userId: number, productId: number) {
     errors?: unknown;
   };
   if (!res.ok || !data.product?.id) {
+    const detail = JSON.stringify(data.errors || data).slice(0, 300);
+    const hint =
+      res.status === 401
+        ? "。请检查店铺域名必须是 xxx.myshopify.com，且凭证必须来自同一个 Shopify App/店铺"
+        : "";
     return {
       ok: false as const,
-      error: `Shopify 上传失败：${res.status} ${JSON.stringify(data.errors || data).slice(0, 300)}`,
+      error: `Shopify 上传失败：${res.status} ${detail}${hint}`,
     };
   }
 
@@ -462,6 +474,69 @@ async function uploadProductToShopify(userId: number, productId: number) {
     shopifyProductId,
     adminUrl: `https://${shop}/admin/products/${shopifyProductId}`,
   };
+}
+
+async function resolveShopifyAccessToken(
+  shop: string,
+  storedCredential: string,
+): Promise<{ ok: true; accessToken: string } | { ok: false; error: string }> {
+  const clientCredential = parseClientCredential(storedCredential);
+  if (!clientCredential) return { ok: true, accessToken: storedCredential };
+
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: clientCredential.clientId,
+      client_secret: clientCredential.clientSecret,
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    access_token?: unknown;
+    error?: unknown;
+    error_description?: unknown;
+    errors?: unknown;
+  };
+  if (!res.ok || typeof data.access_token !== "string") {
+    const detail = JSON.stringify(
+      data.error_description || data.error || data.errors || data,
+    ).slice(0, 300);
+    return {
+      ok: false,
+      error: `Shopify 新版 App 换取 access token 失败：${res.status} ${detail}。请确认 Client ID、shpss_ Client Secret 和店铺域名属于同一个 App/店铺。`,
+    };
+  }
+  return { ok: true, accessToken: data.access_token };
+}
+
+function parseClientCredential(
+  value: string,
+): { clientId: string; clientSecret: string } | null {
+  if (!value.startsWith(CLIENT_CREDENTIAL_PREFIX)) return null;
+  try {
+    const raw = value.slice(CLIENT_CREDENTIAL_PREFIX.length);
+    const parsed = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as {
+      clientId?: unknown;
+      clientSecret?: unknown;
+    };
+    if (
+      typeof parsed.clientId !== "string" ||
+      typeof parsed.clientSecret !== "string"
+    ) {
+      return null;
+    }
+    return {
+      clientId: parsed.clientId,
+      clientSecret: parsed.clientSecret,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function buildShopifyVariants(source: Record<string, unknown>, color: string | null) {

@@ -498,7 +498,7 @@ export function upsertShopifyCredential(args: {
       args.userId,
       args.shopDomain,
       args.accessToken,
-      args.apiVersion ?? "2024-10",
+      args.apiVersion ?? "2026-04",
     );
 }
 

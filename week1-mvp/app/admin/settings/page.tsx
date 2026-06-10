@@ -29,7 +29,9 @@ interface ShopifyInfo {
   hasCredential: boolean;
   shopDomain: string;
   apiVersion: string;
+  credentialMode: "none" | "admin_token" | "client_credentials";
   accessTokenMask: string;
+  clientIdMask: string;
   updatedAt: number | null;
 }
 
@@ -78,7 +80,9 @@ export default function SettingsAdminPage() {
   const [shopifyForm, setShopifyForm] = useState({
     shop_domain: "",
     access_token: "",
-    api_version: "2024-10",
+    client_id: "",
+    client_secret: "",
+    api_version: "2026-04",
   });
   const [shopifyTouched, setShopifyTouched] = useState(false);
 
@@ -124,7 +128,9 @@ export default function SettingsAdminPage() {
           setShopifyForm({
             shop_domain: info.shopDomain || "",
             access_token: "",
-            api_version: info.apiVersion || "2024-10",
+            client_id: "",
+            client_secret: "",
+            api_version: info.apiVersion || "2026-04",
           });
         }
       }
@@ -245,8 +251,18 @@ export default function SettingsAdminPage() {
       setError("请输入 Shopify 店铺域名");
       return;
     }
-    if (!shopifyForm.access_token.trim()) {
-      setError("请输入 Shopify Admin API access token 明文");
+    const hasAdminToken = shopifyForm.access_token.trim();
+    const hasClientCredentials =
+      shopifyForm.client_id.trim() && shopifyForm.client_secret.trim();
+    if (!hasAdminToken && !hasClientCredentials && !shopify?.hasCredential) {
+      setError("请输入 Admin API token，或输入 Client ID + shpss_ Client Secret");
+      return;
+    }
+    if (
+      (shopifyForm.client_id.trim() || shopifyForm.client_secret.trim()) &&
+      !hasClientCredentials
+    ) {
+      setError("Shopify 新版 App 需要同时填写 Client ID 和 shpss_ Client Secret");
       return;
     }
     setSaving(true);
@@ -261,7 +277,12 @@ export default function SettingsAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
       setShopify(data.shopify || null);
-      setShopifyForm((f) => ({ ...f, access_token: "" }));
+      setShopifyForm((f) => ({
+        ...f,
+        access_token: "",
+        client_id: "",
+        client_secret: "",
+      }));
       setShopifyTouched(false);
       showSaved("Shopify 上传凭证已保存。产品管理工作台可以执行一键上传。");
     } catch (e) {
@@ -573,8 +594,8 @@ export default function SettingsAdminPage() {
           Shopify 一键上架
         </h2>
         <p className="text-xs text-fg-tertiary mb-4">
-          产品管理工作台会使用这里的 Admin API token 创建商品、变体、图片和落地页 metafield。
-          浏览器登录 Shopify 只能用于人工确认，真正上传需要这个 token。
+          产品管理工作台会用这里的凭证创建商品、变体、图片和落地页 metafield。
+          旧版可填 Admin API token；新版 Shopify App 可填 Client ID + shpss_ Client Secret。
         </p>
 
         {loading ? (
@@ -594,6 +615,11 @@ export default function SettingsAdminPage() {
                   <span className="ml-3 font-mono text-fg-tertiary">
                     {shopify.accessTokenMask}
                   </span>
+                  {shopify.clientIdMask ? (
+                    <span className="ml-3 font-mono text-fg-tertiary">
+                      Client {shopify.clientIdMask}
+                    </span>
+                  ) : null}
                 </>
               ) : null}
             </div>
@@ -625,15 +651,54 @@ export default function SettingsAdminPage() {
                     setShopifyForm({ ...shopifyForm, api_version: e.target.value });
                     setShopifyTouched(true);
                   }}
-                  placeholder="2024-10"
+                  placeholder="2026-04"
                   className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">
+                  Shopify Client ID（新版）
+                </label>
+                <input
+                  type="text"
+                  value={shopifyForm.client_id}
+                  onChange={(e) => {
+                    setShopifyForm({ ...shopifyForm, client_id: e.target.value });
+                    setShopifyTouched(true);
+                  }}
+                  placeholder="936ebd893a..."
+                  className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-fg-secondary mb-1">
+                  Client Secret / 加密密钥（新版）
+                </label>
+                <input
+                  type="password"
+                  value={shopifyForm.client_secret}
+                  onChange={(e) => {
+                    setShopifyForm({ ...shopifyForm, client_secret: e.target.value });
+                    setShopifyTouched(true);
+                  }}
+                  placeholder={
+                    shopify?.credentialMode === "client_credentials"
+                      ? "留空 = 不修改；输入 shpss_ = 替换"
+                      : "shpss_..."
+                  }
+                  className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
+                  autoComplete="off"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-fg-secondary mb-1">
-                Admin API access token
+                Admin API access token（旧版，可选）
               </label>
               <input
                 type="password"
@@ -645,13 +710,13 @@ export default function SettingsAdminPage() {
                 placeholder={
                   shopify?.hasCredential
                     ? "留空 = 不修改；输入新 token = 替换"
-                    : "从 Shopify Admin App 复制 Admin API access token"
+                    : "旧版 Admin API access token，例如 shpat_..."
                 }
                 className="w-full px-3 py-2 border border-border-default rounded-md text-sm font-mono"
                 autoComplete="off"
               />
               <p className="mt-1 text-xs text-fg-tertiary">
-                需要权限：write_products、read_products、write_files/read_files（如店铺应用支持）。
+                现在你截图里的 shpss_ 应填在上面的 Client Secret，不要填到旧版 token。需要权限：write_products、read_products、write_files/read_files。
               </p>
             </div>
 
@@ -661,7 +726,9 @@ export default function SettingsAdminPage() {
                 saving ||
                 !shopifyTouched ||
                 !shopifyForm.shop_domain.trim() ||
-                !shopifyForm.access_token.trim()
+                (!shopifyForm.access_token.trim() &&
+                  !(shopifyForm.client_id.trim() && shopifyForm.client_secret.trim()) &&
+                  !shopify?.hasCredential)
               }
               className="px-4 py-2 bg-brand-600 text-white text-sm rounded-md hover:bg-brand-700 disabled:opacity-50"
             >

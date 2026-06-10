@@ -495,7 +495,7 @@ function migrate(db: Database.Database) {
       user_id       INTEGER NOT NULL REFERENCES users(id) UNIQUE,
       shop_domain   TEXT NOT NULL,                -- "myshop.myshopify.com"
       access_token  TEXT NOT NULL,                -- 加密后的 admin API token
-      api_version   TEXT NOT NULL DEFAULT '2024-10',
+      api_version   TEXT NOT NULL DEFAULT '2026-04',
       created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at    INTEGER NOT NULL DEFAULT (unixepoch())
     );
