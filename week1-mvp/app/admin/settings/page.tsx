@@ -355,7 +355,7 @@ export default function SettingsAdminPage() {
           Gemini API Key
         </h2>
         <p className="text-xs text-fg-tertiary mb-4">
-          所有出图 / 解析功能都通过 Gemini API key 直连 aistudio.google.com。
+          所有出图 / 解析功能都通过 Google GenAI SDK 直连 Gemini Developer API。
           <strong>填一次就一直在</strong>，重启容器、重新部署不会丢。
         </p>
 
@@ -389,7 +389,7 @@ export default function SettingsAdminPage() {
                   placeholder={
                     provider?.hasGeminiApiKey
                       ? "留空 = 不修改；输入新值 = 替换"
-                      : "AIza... (从 https://aistudio.google.com/app/apikey 创建)"
+                      : "粘贴完整 Gemini API key（AIza... / AQ... 等前缀都支持）"
                   }
                   className="flex-1 px-3 py-2 border border-border-default rounded-md text-sm font-mono"
                   autoComplete="off"

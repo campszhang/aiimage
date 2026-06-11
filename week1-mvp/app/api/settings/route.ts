@@ -93,13 +93,15 @@ export async function PATCH(req: NextRequest) {
     const updates: Array<{ key: string; value: string }> = [];
     for (const [k, v] of Object.entries(body)) {
       if (!ALLOWED_PATCH_KEYS.has(k)) continue;
-      // gemini_api_key：允许空字符串（= 清空）；非空时简单格式校验（AIza 开头，39 字符）
+      // gemini_api_key：允许空字符串（= 清空）。
+      // Google AI Studio / Google Cloud 生成的 Gemini key 前缀可能变化，
+      // 所以只做通用 secret 格式校验，不再写死 AIza。
       if (k === "gemini_api_key" && typeof v === "string" && v.length > 0) {
-        if (!/^AIza[0-9A-Za-z_-]{20,}$/.test(v)) {
+        if (!/^[A-Za-z0-9_-]{20,}$/.test(v.trim())) {
           return NextResponse.json(
             {
               error:
-                "gemini_api_key 格式不正确，应为 'AIza' 开头的字符串。请去 https://aistudio.google.com/app/apikey 重新复制。",
+                "gemini_api_key 格式不正确。请复制 Google AI Studio / Google Cloud 里完整的 Gemini API key。",
             },
             { status: 400 },
           );

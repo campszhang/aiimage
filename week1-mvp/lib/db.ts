@@ -2137,13 +2137,13 @@ function seedSettings(db: Database.Database) {
       key: "ai_provider",
       value: "vertex",
       notes:
-        "AI 提供方：'vertex' = Vertex AI（GCP，需 ADC + project + location）；'gemini_api' = Gemini API 直连（只需 API key，Tier 1 速率高得多）",
+        "AI 提供方历史字段，当前主流程已统一走 Gemini Developer API key + @google/genai。",
     },
     {
       key: "gemini_api_key",
       value: "",
       notes:
-        "Gemini API key（仅 ai_provider=gemini_api 时使用）。从 https://aistudio.google.com/app/apikey 创建。",
+        "Gemini Developer API key。可从 Google AI Studio / Google Cloud 复制完整 key，前缀可能不是 AIza。",
     },
     {
       key: "openai_api_key",

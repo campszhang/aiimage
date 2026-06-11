@@ -5,7 +5,7 @@
  * 输出到 seed-assets/scenes-v4-output/{single|poster}/{slug}.png（不直接覆盖原文件）。
  *
  * 用法（在 week1-mvp/ 下跑）：
- *   1. 确保 GCP_PROJECT_ID 已设置（用 Vertex），或 GEMINI_API_KEY 已设置（用 Gemini API）
+ *   1. 确保 GCP_PROJECT_ID 已设置（用 Vertex），或 GEMINI_API_KEY 已设置（用 Gemini Developer API）
  *      Vertex 还需要 ADC：gcloud auth application-default login（一次即可）
  *   2. 把 .env.example 复制成 .env 并填好（脚本会自动读取）
  *   3. 跑：npx tsx scripts/regen-scenes.ts
@@ -49,7 +49,7 @@ async function setupProxy() {
     undici.setGlobalDispatcher(dispatcher);
     console.log(`[proxy] 走代理: ${proxyUrl}（已替换 globalThis.fetch）`);
 
-    // 自检：试一下能不能通
+    // 自检：只检查 Google Gemini API 域名连通性，业务请求仍由 @google/genai SDK 负责。
     try {
       const res = await (globalThis.fetch as typeof origFetch)(
         "https://generativelanguage.googleapis.com/v1beta/models",
